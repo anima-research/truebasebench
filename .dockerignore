@@ -1,0 +1,11 @@
+# Keep the build context small and host-independent: the Dockerfile copies explicit paths,
+# but the whole context is still uploaded to the builder.
+.git
+**/node_modules
+site/dist
+**/.DS_Store
+**/__pycache__
+*.log
+.env
+.env.*
+!.env.example

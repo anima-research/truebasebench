@@ -1,0 +1,12 @@
+{
+  "manifest_version": 1,
+  "latest": "bench_v1.json",
+  "bundles": [
+    {
+      "file": "bench_v1.json",
+      "schema_version": 1,
+      "generated": "2026-10-13",
+      "n_models": 32
+    }
+  ]
+}

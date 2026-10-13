@@ -1,0 +1,72 @@
+/* Identity tokens (DESIGN §2). Charts read every colour from these. */
+:root {
+  color-scheme: light;
+  --bg: #F5F3EE;
+  --bg-plate: #ECE8DF;
+  --bg-raised: #FBFAF7;
+  --ink: #1A1D21;
+  --ink-2: #4A4F57;
+  --ink-3: #5F646C;
+  --rule: #D8D2C4;
+  --rule-strong: #B9B1A0;
+  --control: #5F646C;
+  --track: #E3DED3;
+  --bar: #2A2E35;
+  --hl: #F3DD86;
+  --hl-40: rgba(243, 221, 134, 0.4);
+  --focus: #0B5CAD;
+  --link: #0B5CAD;
+  --zero: #4A4F57;
+  --band: rgba(30, 122, 106, 0.12);
+  --st-pre: #1E7A6A;
+  --st-anl: #A86B00;
+  --st-base: #3B5B9A;
+  --st-post: #B23A26;
+
+  --radius: 2px;
+  --hair: 1px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-step: 160ms;
+  --dur-3: 600ms;
+  --ease-settle: cubic-bezier(.2, 0, 0, 1);
+  --ease-inout: cubic-bezier(.65, 0, .35, 1);
+
+  --f-serif: "Source Serif 4 Variable", "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --f-sans: "IBM Plex Sans Condensed", "Tbb Condensed Fallback", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111417; --bg-plate: #181C20; --bg-raised: #1E2328;
+    --ink: #E8E4DA; --ink-2: #B5B0A5; --ink-3: #8C887F;
+    --rule: #2C3238; --rule-strong: #434B53; --control: #8C887F; --track: #262C31; --bar: #DCD7CB;
+    --hl: #5C4E14; --hl-40: rgba(92, 78, 20, 0.55); --focus: #7FB2FF; --link: #7FB2FF; --zero: #B5B0A5;
+    --band: rgba(79, 191, 168, 0.14);
+    --st-pre: #4FBFA8; --st-anl: #E0A63A; --st-base: #8EA8E8; --st-post: #F07C62;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111417; --bg-plate: #181C20; --bg-raised: #1E2328;
+  --ink: #E8E4DA; --ink-2: #B5B0A5; --ink-3: #8C887F;
+  --rule: #2C3238; --rule-strong: #434B53; --control: #8C887F; --track: #262C31; --bar: #DCD7CB;
+  --hl: #5C4E14; --hl-40: rgba(92, 78, 20, 0.55); --focus: #7FB2FF; --link: #7FB2FF; --zero: #B5B0A5;
+  --band: rgba(79, 191, 168, 0.14);
+  --st-pre: #4FBFA8; --st-anl: #E0A63A; --st-base: #8EA8E8; --st-post: #F07C62;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-step: 0ms; --dur-3: 0ms; }
+}
+:root[data-reduce-motion] { --dur-1: 0ms; --dur-2: 0ms; --dur-step: 0ms; --dur-3: 0ms; }
+
+/* size-adjusted fallback to limit layout shift while Plex Sans Condensed loads */
+@font-face {
+  font-family: "Tbb Condensed Fallback";
+  src: local("Arial Narrow"), local("Roboto Condensed"), local("Arial");
+  size-adjust: 92%;
+}

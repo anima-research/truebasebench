@@ -3,7 +3,7 @@
  "generated": "2026-10-13",
  "n_models": 32,
  "reference": {
-  "census_entropy_top2000": 6.93,
+  "census_entropy_top2000": 6.9255915616308386,
   "census_self_entropy_all": 10.4,
   "pile_lexical": {
    "n_texts": 79,
@@ -20,7 +20,7 @@
    "id": "olmo2-7b_stage1-2928B",
    "family": "OLMo-2 7B",
    "stage": "pre-anneal",
-   "label": "stage 1 \u00b7 2.9T",
+   "label": "stage 1 · 2.9T",
    "order": 0,
    "score": 0.9828102328065856,
    "subscores": {
@@ -349,7 +349,7 @@
    "id": "olmo2-7b_stage1-3896B",
    "family": "OLMo-2 7B",
    "stage": "pre-anneal",
-   "label": "stage 1 \u00b7 3.9T (pre-anneal)",
+   "label": "stage 1 · 3.9T (pre-anneal)",
    "order": 1,
    "score": 0.9698064944419529,
    "subscores": {
@@ -2323,7 +2323,7 @@
    "id": "olmo2-7b_stage2-ing1-17B",
    "family": "OLMo-2 7B",
    "stage": "anneal",
-   "label": "stage 2 \u00b7 +17B",
+   "label": "stage 2 · +17B",
    "order": 3,
    "score": 0.8544673946521738,
    "subscores": {
@@ -2652,7 +2652,7 @@
    "id": "olmo2-7b_stage2-ing1-5B",
    "family": "OLMo-2 7B",
    "stage": "anneal",
-   "label": "stage 2 \u00b7 +5B",
+   "label": "stage 2 · +5B",
    "order": 2,
    "score": 0.836503685794442,
    "subscores": {
@@ -3310,7 +3310,7 @@
    "id": "olmo2-7b_stage2-ing1-50B",
    "family": "OLMo-2 7B",
    "stage": "anneal",
-   "label": "stage 2 \u00b7 +50B",
+   "label": "stage 2 · +50B",
    "order": 4,
    "score": 0.7847104640768877,
    "subscores": {
@@ -3763,11 +3763,11 @@
     "zipf_m": -0.965079296454954,
     "zipf_r": -0.6875232126282597,
     "inset": 0.7511122008759138,
-    "junk": NaN,
-    "distinct": NaN,
-    "surpr": NaN,
-    "top10sh": NaN,
-    "stepH": NaN
+    "junk": null,
+    "distinct": null,
+    "surpr": null,
+    "top10sh": null,
+    "stepH": null
    },
    "weird": {
     "ALL": [
@@ -4424,8 +4424,8 @@
     "junk": 0.05106971134115097,
     "distinct": 0.4741070143113381,
     "surpr": 7.1394299321958865,
-    "top10sh": NaN,
-    "stepH": NaN
+    "top10sh": null,
+    "stepH": null
    },
    "weird": {
     "ALL": [
@@ -5408,11 +5408,11 @@
     "zipf_m": -0.7579224444235096,
     "zipf_r": -0.6875232126282597,
     "inset": 0.666822263959276,
-    "junk": NaN,
-    "distinct": NaN,
-    "surpr": NaN,
-    "top10sh": NaN,
-    "stepH": NaN
+    "junk": null,
+    "distinct": null,
+    "surpr": null,
+    "top10sh": null,
+    "stepH": null
    },
    "weird": {
     "ALL": [
@@ -9584,8 +9584,8 @@
     "junk": 0.02224615093314115,
     "distinct": 0.4301699158324285,
     "surpr": 6.989252271795242,
-    "top10sh": NaN,
-    "stepH": NaN
+    "top10sh": null,
+    "stepH": null
    },
    "weird": {
     "ALL": [

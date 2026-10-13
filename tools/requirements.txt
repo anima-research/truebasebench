@@ -1,0 +1,2 @@
+# tools/upload_data.py (tools/export_bundle.py needs only the standard library)
+boto3==1.35.99

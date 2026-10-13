@@ -1,0 +1,87 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`findings predicates on bench_v1 > computed ranges (snapshot; review drift when a bundle changes) 1`] = `
+{
+  "f1": {
+    "band": 0.016,
+    "family": "OLMo-2 7B",
+    "steps": [
+      [
+        "stage 1 · 3.9T (pre-anneal)",
+        0.013,
+      ],
+      [
+        "stage 2 · +50B",
+        0.002,
+      ],
+      [
+        "Base (soup)",
+        -0.006,
+      ],
+      [
+        "SFT",
+        -0.398,
+      ],
+      [
+        "DPO",
+        -0.854,
+      ],
+      [
+        "Instruct (RLVR)",
+        -0.917,
+      ],
+    ],
+  },
+  "f2": {
+    "memo": [
+      "Trinity-Large-TrueBase",
+      "Trinity-Large-Base",
+      "Trinity-Large-Preview",
+    ],
+    "priorRange": [
+      0.219,
+      0.313,
+    ],
+  },
+  "f3": {
+    "otherBaseMin": "Trinity-Large-Base",
+    "postMax": "Llama-3.1-70B-Instruct-new",
+    "student": "gemma-2-9b",
+  },
+  "f4": {
+    "postRepMedian": 0.124,
+    "specimen": "Trinity-Large-TrueBase",
+  },
+  "f5": {
+    "B": "olmo2-7b_instruct",
+    "cleanRange": [
+      0.123,
+      0.286,
+    ],
+    "sharpen": 12,
+  },
+  "f6": {
+    "baseHiExceptions": [
+      "gemma-2-9b",
+    ],
+    "baseHiMedian": -0.026,
+    "gapExceptions": [
+      "Llama-3.1-70B-Instruct-new",
+      "gemma-2-9b-it",
+      "Trinity-Large-Preview",
+    ],
+    "gapRange": [
+      0.322,
+      1.111,
+    ],
+    "pairs": 13,
+    "rateExceptions": [
+      "Trinity-Large-Preview",
+    ],
+    "rateRange": [
+      0.255,
+      2.047,
+    ],
+  },
+}
+`;

@@ -1,0 +1,76 @@
+# True Base Bench: static site server (Railway). Serves the Vite build from /srv.
+# Railway terminates TLS and injects $PORT; Caddy only speaks plain HTTP behind it.
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For X-Real-IP
+	}
+	log {
+		output stdout
+		format json
+		level WARN
+	}
+}
+
+# Security headers, applied to normal and error responses.
+(security_headers) {
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-site"
+		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+	# Content-Security-Policy, generated at image build time (tools/csp.mjs).
+	import /etc/caddy/csp.caddy
+}
+
+:{$PORT:8080} {
+	root * /srv
+	encode zstd gzip
+
+	import security_headers
+
+	# Caching. Vite fingerprints everything under /assets, so those never change.
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+	# The manifest is the pointer to the latest bundle: always revalidate.
+	header /data/manifest.json Cache-Control "no-cache"
+	@bundle path_regexp bundle ^/data/bench_v[0-9]+\.json$
+	header @bundle Cache-Control "public, max-age=3600"
+	# The data copy is public; let notebooks and other sites read it like the bucket.
+	header /data/* Access-Control-Allow-Origin "*"
+	header /favicon.svg Cache-Control "public, max-age=86400"
+	# Everything else (index.html, SPA routes): revalidate on every load. "?" = only if not set above.
+	header ?Cache-Control "no-cache"
+
+	handle /healthz {
+		header Cache-Control "no-store"
+		respond "ok" 200
+	}
+
+	# Real files only: a missing asset or bundle is a 404, never index.html.
+	handle /assets/* {
+		file_server
+	}
+	handle /data/* {
+		file_server
+	}
+
+	# SPA fallback: client-side routes (/model/<id>, /findings, ...) get index.html.
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle_errors {
+		import security_headers
+		header Cache-Control "no-store"
+		respond "{err.status_code} {err.status_text}"
+	}
+}

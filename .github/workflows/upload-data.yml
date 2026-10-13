@@ -1,0 +1,78 @@
+name: Upload data to OVH Object Storage
+
+# Manual: Actions -> "Upload data to OVH Object Storage" -> Run workflow.
+# Publishes data/bench_v<N>.json and data/manifest.json (manifest last) as public-read objects.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (validate and list, upload nothing)"
+        type: boolean
+        default: false
+      only:
+        description: "Only these files, space-separated (e.g. 'bench_v2.json manifest.json'); empty = all"
+        type: string
+        default: ""
+      force:
+        description: "Re-upload unchanged files (e.g. after changing the cache policy)"
+        type: boolean
+        default: false
+      apply_cors:
+        description: "Also apply infra/ovh/cors.json to the bucket"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upload-data
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    # Only reviewed data reaches the public bucket: the job runs from main only, and the credentials are
+    # secrets of the `data` environment (deployment branches: main), not repository secrets.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: data
+    env:
+      OVH_S3_ENDPOINT: ${{ secrets.OVH_S3_ENDPOINT }}
+      OVH_S3_BUCKET: ${{ secrets.OVH_S3_BUCKET }}
+      OVH_S3_REGION: ${{ secrets.OVH_S3_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      OVH_S3_PREFIX: ${{ vars.OVH_S3_PREFIX }}
+      OVH_S3_PUBLIC_URL: ${{ vars.OVH_S3_PUBLIC_URL }}
+      SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Validate data against the site schemas
+        run: |
+          (cd site && npm ci --no-audit --no-fund)
+          node tools/validate_data.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - run: pip install -r tools/requirements.txt
+      - name: Upload
+        env:
+          IN_DRY_RUN: ${{ inputs.dry_run }}
+          IN_ONLY: ${{ inputs.only }}
+          IN_FORCE: ${{ inputs.force }}
+          IN_CORS: ${{ inputs.apply_cors }}
+        run: |
+          args=()
+          [ "$IN_DRY_RUN" = "true" ] && args+=(--dry-run)
+          [ "$IN_FORCE" = "true" ] && args+=(--force)
+          [ "$IN_CORS" = "true" ] && args+=(--apply-cors)
+          [ "$IN_DRY_RUN" != "true" ] && args+=(--verify)
+          if [ -n "$IN_ONLY" ]; then read -ra files <<< "$IN_ONLY"; args+=(--only "${files[@]}"); fi
+          python tools/upload_data.py "${args[@]}"
