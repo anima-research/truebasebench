@@ -30,7 +30,7 @@
    "family": "OLMo-3 32B",
    "stage": "base",
    "label": "Base",
-   "order": 0
+   "order": 1
   },
   "olmo2-7b_stage1-2928B": {
    "family": "OLMo-2 7B",
@@ -222,7 +222,7 @@
    "family": "OLMo-3 32B",
    "stage": "pre-anneal",
    "label": "stage 1 · step 656k (pre-mid-training)",
-   "order": -1
+   "order": 0
   }
  }
 }

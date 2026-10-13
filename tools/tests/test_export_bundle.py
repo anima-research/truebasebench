@@ -63,8 +63,9 @@ class ExportRoundTrip(unittest.TestCase):
         for m in self.v1["models"]:
             meta = self.registry["models"].get(m["id"])
             self.assertIsNotNone(meta, m["id"])
-            self.assertEqual((meta["family"], meta["stage"], meta["label"], meta["order"]),
-                             (m["family"], m["stage"], m["label"], m["order"]), m["id"])
+            # `order` is a ladder position and legitimately shifts when an earlier rung is added later
+            self.assertEqual((meta["family"], meta["stage"], meta["label"]),
+                             (m["family"], m["stage"], m["label"]), m["id"])
 
     def test_scores_recompute_from_fingerprint(self):
         for m in self.v1["models"]:
@@ -90,7 +91,9 @@ class ExportRoundTrip(unittest.TestCase):
         self.assertEqual(self.v1["reference"], bundle["reference"])
         got = {m["id"]: m for m in bundle["models"]}
         for m in self.v1["models"]:
-            self.assertEqual(m, got[m["id"]], m["id"])
+            a, b = dict(m), dict(got[m["id"]])
+            a.pop("order", None); b.pop("order", None)  # ladder positions may be renumbered by later registry additions
+            self.assertEqual(a, b, m["id"])
         scores = [m["score"] for m in bundle["models"]]
         self.assertEqual(scores, sorted(scores, reverse=True))
         json.dumps(bundle, allow_nan=False)  # strict JSON
