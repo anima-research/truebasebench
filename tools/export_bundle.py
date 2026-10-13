@@ -5,6 +5,7 @@ Reads the files the measurement scripts write into results/analysis/ (see docs/v
 
     fingerprints.json     vh_analyze.py --all       {model: {feature: value}}           required
     truebase_scores.json  vh_truebase.py            {model: {calib|spread|memo|prior: {score,value,source}, overall, n_avail}}
+    runs.json             (collected run.json files)  {model: {model_path, backend, library, n_tf, rollout_steps, ..., files_dated}}  optional
     names_summary.json    vh_names_table.py         {model: {KL_desc, KL_few, ...}}
     weird_summary.json    vh_names_table.py         {model: {ALL: [gap, runfrac, CE], <genre>: [...]}}
     selfboot.json         vh_selfboot.py            {reference: {...}, models: {model: {reliability, lexical}}}
@@ -184,6 +185,7 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
     weird = load_optional(adir, "weird_summary.json", warnings) or {}
     selfboot_raw = load_optional(adir, "selfboot.json", warnings) or {}
     tails = tail_by_model(load_optional(adir, "tail_realised.json", warnings))
+    runs = load_optional(adir, "runs.json", warnings) or {}  # provenance: model path, backend, run settings, dates
     selfboot = selfboot_raw.get("models", {}) if isinstance(selfboot_raw, dict) else {}
 
     reg_models: Dict[str, Dict[str, Any]] = registry["models"]
@@ -236,6 +238,7 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             "weird": weird.get(mid),
             "selfboot": selfboot.get(mid),
             "tail": tails.get(mid),
+            **({"provenance": clean(runs[mid])} if runs.get(mid) else {}),
         })
         for part in ("surnames", "weird", "selfboot", "tail"):
             if models[-1][part] is None:
