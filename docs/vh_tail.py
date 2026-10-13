@@ -1,5 +1,6 @@
 import os, json, numpy as np
-res = "/models/varentropy/results"
+import sys
+res = sys.argv[1] if len(sys.argv) > 1 else "/models/varentropy/results"
 rows = []
 for m in sorted(os.listdir(res)):
     d = os.path.join(res, m)

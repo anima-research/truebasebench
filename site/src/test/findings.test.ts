@@ -1,12 +1,16 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { allFindings } from "../findings";
 import { readBundle } from "./helpers";
+import { DATA } from "./helpers";
 
-const b = readBundle("bench_v1.json");
+const LATEST: string = JSON.parse(readFileSync(join(DATA, "manifest.json"), "utf8")).latest;
+const b = readBundle(LATEST);
 const F = allFindings(b);
 const r3 = (x: number | null | undefined) => (x === null || x === undefined ? null : Math.round(x * 1000) / 1000);
 
-describe("findings predicates on bench_v1", () => {
+describe("findings predicates on the latest bundle", () => {
   it("every check holds", () => {
     const failed = Object.entries(F).flatMap(([f, v]) =>
       Object.entries(v.checks)

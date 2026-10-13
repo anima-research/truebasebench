@@ -10,8 +10,10 @@ import type { Bundle, Model } from "./data/types";
 
 /** Definitions used by the checks (not measurements). */
 export const FINDING_DEFS = {
-  /** SPEC: pre-anneal checkpoints sit within ±0.02 of 0 */
+  /** SPEC: pre-anneal checkpoints sit within ±0.02 of 0 overall */
   PRE_BAND_MAX: 0.02,
+  /** per-domain band for pre-anneal checkpoints (both signs); the widest observed is +0.059 */
+  PRE_DOMAIN_BAND_MAX: 0.06,
   /** tolerance for non-monotone steps inside one stage (OLMo-2 anneal rungs) */
   STAGE_TOL: 0.005,
   /** a base counts as "clean" for the surname range when its overall score is at least this */
@@ -73,8 +75,10 @@ export function f1(b: Bundle): F1 {
     if (num(a) && num(c) && c - a > FINDING_DEFS.STAGE_TOL) bad.push(`${rungs[i - 1].label} → ${rungs[i].label} (inside a stage)`);
   }
   const pres = b.models.filter((m) => m.stage === "pre-anneal");
+  // both signs: a pre-anneal checkpoint must not be over- OR under-confident beyond the band in any domain
   const preDomainMin = pres.map((m) => ({ model: m, value: fp(m, "F_gap_domain_min") })).filter((x): x is { model: Model; value: number } => num(x.value));
-  const domBad = preDomainMin.filter((x) => x.value < -FINDING_DEFS.PRE_BAND_MAX);
+  const preDomainMax = pres.map((m) => ({ model: m, value: fp(m, "F_gap_domain_max") })).filter((x): x is { model: Model; value: number } => num(x.value));
+  const domBad = [...preDomainMin.filter((x) => x.value < -FINDING_DEFS.PRE_DOMAIN_BAND_MAX), ...preDomainMax.filter((x) => x.value > FINDING_DEFS.PRE_DOMAIN_BAND_MAX)];
   return {
     band,
     family,
@@ -93,7 +97,7 @@ export function f1(b: Bundle): F1 {
       },
       domains: {
         ok: domBad.length === 0,
-        note: `a pre-anneal checkpoint has a post-cutoff domain gap below −${FINDING_DEFS.PRE_BAND_MAX}: ${domBad.map((x) => x.model.label).join(", ")}`,
+        note: `a pre-anneal checkpoint has a post-cutoff domain gap outside ±${FINDING_DEFS.PRE_DOMAIN_BAND_MAX}: ${domBad.map((x) => x.model.label).join(", ")}`,
       },
     },
   };

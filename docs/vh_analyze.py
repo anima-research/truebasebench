@@ -266,8 +266,9 @@ def fingerprint(tf, ro, corpus=None, extra=None, rollout_texts=None, fresh=None)
         for name in sorted(set(fds)):
             m = fds == name
             if m.sum() > 2000:
-                gaps[name] = float((Hf[m] - sf[m]).mean()); f[f"F_CE_{name[:10]}"] = float(sf[m].mean())
-        f["F_gap_domain_min"] = float(min(gaps.values())); f["F_gap_domain_absmean"] = float(np.mean(np.abs(list(gaps.values()))))
+                gaps[name] = float((Hf[m] - sf[m]).mean()); f[f"F_CE_{name}"] = float(sf[m].mean()); f[f"F_gap_{name}"] = gaps[name]; f[f"F_n_{name}"] = int(m.sum())
+        f["F_gap_domain_min"] = float(min(gaps.values())); f["F_gap_domain_max"] = float(max(gaps.values())); f["F_gap_domain_absmean"] = float(np.mean(np.abs(list(gaps.values()))))
+        f["F_n_positions"] = int(len(Hf))
         rm = vh_memo.runs_mask(Hf, fresh["rank"], fresh["doc"])
         f["F_verbatim_run_frac"] = float(rm.mean())
         f["F_frac_H<0.1"] = float((Hf < 0.1).mean())

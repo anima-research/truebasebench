@@ -16,7 +16,7 @@ Each checkpoint goes through the same scripts (`vh_score.py` with HF transformer
 |---|---|---|---|
 | `tf` | Pile documents (NeelNanda/pile-10k, fixed seeded selection, at least 400 characters) | 400 documents, at most 2048 tokens each, about 290k tokens | in most pretraining sets, so it also measures recall; fallback for features that need post-cutoff text |
 | `tf_wiki` | Wikipedia and GitHub documents | 150 + 60 documents | memorisation features |
-| `tf_fresh` | UncheatableEval 2026-04: AO3, arXiv, bioRxiv, BBC, GitHub, Wikipedia and others, 15 categories | 900 documents, about 1.3M tokens | written after every measured model's cutoff; drives the calibration scores |
+| `tf_fresh` | UncheatableEval 2026-04: AO3, arXiv, bioRxiv, BBC, GitHub, Wikipedia and others, 15 categories | 900 documents, about 1.3M tokens | written after every measured model's cutoff; drives the calibration scores | The FP8 mixture-of-experts giants (DeepSeek-V3 base/chat, Kimi K2 base/instruct, Cogito) were measured on a 300-document subset (20 per category, ≈441k positions) for runtime; `F_n_positions` in the bundle records the exposure per model.
 | `tf_weird` | rare-genre Pile documents: Enron, OpenSubtitles, HackerNews, DM Mathematics, NIH, FreeLaw, USPTO, YouTube subtitles, EuroParl, PhilPapers, Ubuntu IRC, PG-19 | 199 documents | per-genre gap and verbatim share (shown, not scored) |
 
 **Own samples.** 32 sequences from a bare `<bos>` and 32 continued from 32-token document openers, 1536 steps each (1024 for the FP8 giants, to fit memory), at temperature 1 with no truncation. Sampling continues past end-of-text. H, V, s and p1 are recorded at every step, where s is now the surprisal of the token the model itself sampled.

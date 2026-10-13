@@ -24,7 +24,7 @@ In the other families with both a base and a post-trained rung, the post-trained
 
 {{block:f2-claim}}
 
-The two families with a measured pre-anneal checkpoint were annealed differently, and the sub-scores separate the recipes. One anneal recited its up-weighted sources while its prior stayed clean; the other kept its calibration and did not memorise Wikipedia, but its prior became instruction-shaped. A single "base-ness" number would put the two released bases near each other; the profiles show that they moved along different axes.
+The three families with a measured pre-anneal checkpoint were annealed differently, and the sub-scores separate the recipes. One anneal recited its up-weighted sources while its prior stayed clean; the other kept its calibration and did not memorise Wikipedia, but its prior became instruction-shaped. A single "base-ness" number would put the two released bases near each other; the profiles show that they moved along different axes.
 
 {{block:f2-detail}}
 

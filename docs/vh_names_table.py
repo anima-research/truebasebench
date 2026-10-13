@@ -34,7 +34,8 @@ for m in models:
          "top10_desc": mean("top10_model", ex_desc), "top10_few": mean("top10_model", ex_few) if ex_few else None,
          "smith_plain": next((v["exact"]["top5_model"][0][1] for k, v in j.items() if k == "plain" and v["exact"]["top5_model"][0][0] == "Smith"), None), "KL_mc": mean("KL(model||ref)"), "H_m": mean("H_model"), "H_r": mean("H_ref"),
          "top10_m": mean("top10_model"), "top10_r": mean("top10_ref"), "zipf_m": mean("zipf_slope_model"), "zipf_r": mean("zipf_slope_ref"), "inset": mean("mass_in_set"),
-         "junk": mean("junk_frac", sm), "distinct": mean("distinct_frac", sm), "surpr": mean("mean_ref_surprise_nats", sm), "top10sh": mean("top10_share", sm), "stepH": mean("mean_step_H", sm)}
+         "junk": mean("junk_frac", sm_desc), "distinct": mean("distinct_frac", sm_desc), "surpr": mean("mean_ref_surprise_nats", sm_desc), "top10sh": mean("top10_share", sm_desc), "stepH": mean("mean_step_H", sm_desc),
+         "junk_all": mean("junk_frac", sm), "distinct_all": mean("distinct_frac", sm), "surpr_all": mean("mean_ref_surprise_nats", sm)}
     rows[m] = r
     f = lambda v, w=8, d=3: (f"{v:{w}.{d}f}" if v is not None and not (isinstance(v, float) and math.isnan(v)) else " " * (w - 1) + "–")
     print(f"{m[:30]:30}{f(r['KL_desc'])}{f(r['KL_few'])}{f(r['H_desc'],7,2)}{f(r['H_few'],7,2)}{r['H_r']:6.2f}{f(r['top10_desc'],8,2)}{f(r['top10_few'],8,2)}{f(r['smith_plain'],12,3)} |                {f(r['junk'],5,2)}{f(r['distinct'],9,2)}{f(r['surpr'],6,2)}")

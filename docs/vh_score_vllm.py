@@ -47,8 +47,12 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs):
             cols[k].append(r[k][:n])
         cols["tok"].append(np.array(forces[m["doc"]][:n], np.int32))  # the forced targets (vLLM's output list can differ at the final step)
         cols["doc"].append(np.full(n, m["doc"], np.int32)); cols["pos"].append(np.arange(n, dtype=np.int32))
-    if mism:
-        base.log(f"WARNING: {mism} docs where forced tokens != generated tokens")
+    missing = sum(1 for m in meta if rec.get(f"{tag}_{m['doc']:04d}") is None)
+    if mism or missing:
+        msg = f"{mism} docs where forced tokens != generated tokens; {missing} docs with no recorder file"
+        if not getattr(run_tf, "lenient", False):
+            raise RuntimeError("teacher-forced replay integrity failure: " + msg)
+        base.log("WARNING (lenient): " + msg)
     arrs = {k: np.concatenate(v) for k, v in cols.items()}
     arrs["H"], arrs["V"], arrs["s"], arrs["p1"] = (arrs[k].astype(np.float16) for k in ["H", "V", "s", "p1"])
     return arrs, meta
@@ -126,6 +130,7 @@ def main():
     ap.add_argument("--names-probe", default=None); ap.add_argument("--names-topk", type=int, default=2000)
     ap.add_argument("--names-lists", type=int, default=16); ap.add_argument("--names-steps", type=int, default=400)
     ap.add_argument("--max-num-batched-tokens", type=int, default=None)
+    ap.add_argument("--lenient", action="store_true", help="tolerate missing recorder files / forced-token mismatches (default: fail the run)")
     args = ap.parse_args()
 
     from vllm import LLM, SamplingParams
@@ -157,6 +162,7 @@ def main():
     json.dump({"args": vars(args), "backend": "vllm", "vocab": tok.vocab_size, "bos": tok.bos_token_id, "eos": tok.eos_token_id,
                "load_s": time.time() - t0}, open(os.path.join(out_dir, "run.json"), "w"), indent=1)
     sp = {}
+    run_tf.lenient = args.lenient
     if not args.skip_tf:
         arrs, meta = run_tf(llm, tok, corpus["tf"][: args.n_tf], args.max_len, "tf", tmp, sp)
         np.savez_compressed(os.path.join(out_dir, "tf.npz"), **arrs)
@@ -181,9 +187,12 @@ def main():
             rec = collect(tmp, f"ro_{g}_")
             B, T = len(prompts), args.rollout_steps
             for k in ["H", "V", "s", "p1"]:
-                res[f"{g}_{k}"] = np.zeros((B, T), np.float16)
+                res[f"{g}_{k}"] = np.full((B, T), np.nan, np.float16)
             for k in ["top1", "tok"]:
-                res[f"{g}_{k}"] = np.zeros((B, T), np.int32)
+                res[f"{g}_{k}"] = np.full((B, T), -1, np.int32)
+            n_missing = sum(1 for i in range(B) if rec.get(f"ro_{g}_{i:03d}") is None)
+            if n_missing and not args.lenient:
+                raise RuntimeError(f"rollouts[{g}]: {n_missing}/{B} sequences have no recorder file")
             for i, o in enumerate(outs):
                 r = rec.get(f"ro_{g}_{i:03d}")
                 gen = np.array(o.outputs[0].token_ids[:T], np.int32)

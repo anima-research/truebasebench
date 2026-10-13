@@ -8,7 +8,7 @@ import sys, os, json, re, gzip, math
 import numpy as np
 
 res = sys.argv[1]
-corpus_path = "/models/varentropy/corpus/pile10k_sel.json"
+corpus_path = sys.argv[sys.argv.index("--corpus") + 1] if "--corpus" in sys.argv else "/models/varentropy/corpus/pile10k_sel.json"
 WORD = re.compile(r"[A-Za-z]+(?:'[a-z]+)?")
 
 
