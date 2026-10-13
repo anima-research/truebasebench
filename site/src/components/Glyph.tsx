@@ -1,5 +1,5 @@
 import type { Stage } from "../data/types";
-import { STAGE_CODE, stageOrder } from "../data/derive";
+import { STAGE_CODE, STAGE_NAME, stageOrder } from "../data/derive";
 
 export const STAGE_VAR: Record<Stage, string> = {
   "pre-anneal": "var(--st-pre)",
@@ -67,10 +67,10 @@ export function Glyph({ stage, size = 8, hollow = false, title }: { stage: Stage
 
 export function StageTag({ stage, name = false, size = 8 }: { stage: Stage; name?: boolean; size?: number }) {
   return (
-    <span className="stage-tag" title={stage}>
+    <span className="stage-tag" title={STAGE_NAME[stage]}>
       <Glyph stage={stage} size={size} />
       <span className="code">{STAGE_CODE[stage]}</span>
-      {name ? <span className="ink2">{stage}</span> : <span className="visually-hidden">{stage}</span>}
+      {name ? <span className="ink2">{STAGE_NAME[stage]}</span> : <span className="visually-hidden">{STAGE_NAME[stage]}</span>}
     </span>
   );
 }
@@ -84,7 +84,7 @@ export function StageLegend({ stages = stageOrder, hollowNote }: { stages?: Stag
           <li key={s}>
             <Glyph stage={s} size={10} />
             <span className="code">{STAGE_CODE[s]}</span>
-            <span>{s}</span>
+            <span>{STAGE_NAME[s]}</span>
           </li>
         ))}
       {hollowNote && (

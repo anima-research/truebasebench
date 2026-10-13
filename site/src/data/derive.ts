@@ -4,7 +4,9 @@ import { RAMPS } from "./method";
 import { STAGES, SUB_KEYS, type Bundle, type Model, type Stage, type SubKey } from "./types";
 
 export const stageOrder: Stage[] = STAGES;
-export const STAGE_CODE: Record<Stage, string> = { "pre-anneal": "PRE", anneal: "ANL", base: "BASE", "post-trained": "POST" };
+export const STAGE_CODE: Record<Stage, string> = { "pre-anneal": "PRE", anneal: "MID", base: "BASE", "post-trained": "POST" };
+/** Human-readable stage names for legends and titles. */
+export const STAGE_NAME: Record<Stage, string> = { "pre-anneal": "pre-anneal checkpoint", anneal: "mid-anneal checkpoint", base: "released base", "post-trained": "post-trained" };
 export const stageIndex = (s: Stage) => stageOrder.indexOf(s);
 
 /** Rungs of a family sorted by order. */
