@@ -142,7 +142,12 @@ class ExportRoundTrip(unittest.TestCase):
     def test_cli_writes_next_bundle_and_manifest(self):
         write_analysis(self.v1, self.adir)
         shutil.copy(V1, self.data)
-        shutil.copy(os.path.join(REPO, "data", "manifest.json"), self.data)
+        with open(os.path.join(REPO, "data", "manifest.json")) as fh:
+            man0 = json.load(fh)
+        man0["bundles"] = [e for e in man0["bundles"] if e["file"] == "bench_v1.json"]  # seed a v1-only manifest
+        man0["latest"] = "bench_v1.json"
+        with open(os.path.join(self.data, "manifest.json"), "w") as fh:
+            json.dump(man0, fh)
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             rc = eb.main([self.adir, "--data-dir", self.data, "--generated", "2026-11-01"])
         self.assertEqual(rc, 0)

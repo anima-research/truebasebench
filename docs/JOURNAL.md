@@ -58,6 +58,8 @@ MiMo-V2.5 instruct ran first try on node2 (−0.289, ECE 0.042, few-shot 0.41 �
 
 **Site.** Antra: a permanent, maintained True Base Bench site by Anima Labs — Railway hosting, OVH S3 for data, built by an Opus workflow with animated explainers. Spec written (`docs/SPEC.md`), bundle v1 exported (32 models), workflow launched (design direction → scaffold → explainers/content/infra → integrate → three-lens review → fix → verify).
 
+**Site built (16:30–18:45).** Opus workflow, 13 agents, 2.4M tokens: two competing design briefs judged ("Strip Chart" won — the leaderboard as a measuring instrument with a ladder strip, Ranked/Ladders switch and raw-feature view), scaffold → explainers/content/infra in parallel → integrate → review under three lenses (32 findings: label collisions in the explainers at 400px, a CSS specificity bug in phone leaderboard rows, ramp labels struck through by the polyline, bare NaNs in the bundle) → fix → verify (130 tests, 20 views, no console errors). Docker not tested locally (not installed). Deploy steps are in README.md; the owner still has to create the Railway project, the OVH bucket + keys, and push the repo to github.com/anima-research.
+
 **Open questions.**
 - Predicted tail mass (tail reliability) and an OOD corpus — the rigorous version of the rare-sequence question.
 - A pre-anneal checkpoint for OLMo-3 32B and for Qwen (none public) to extend the ladders.
