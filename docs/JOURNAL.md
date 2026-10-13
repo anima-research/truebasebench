@@ -1,0 +1,66 @@
+# True Base Bench — research journal
+
+Dated lab notebook. Newest entries at the bottom. Numbers quoted here are the values at the time of writing; the data bundle is authoritative. Infrastructure: two 8×B200 nodes (node1/node2), jobs scheduled through heimdall; measurement scripts in `docs/`.
+
+## 2026-10-09 — framing and first measurements
+
+**Question (Antra):** measure entropy/varentropy differences between base/instruct pairs and look for irregularities that reveal mode collapse introduced late in pretraining ("the tail end"); the Trinity TrueBase (10T, pre-anneal) vs annealed Base triple is the key object; Llama-3.1-405B base to be measured too.
+
+**Design.** Exact full-vocabulary next-token statistics (H, V = Var[−log p], surprisal of the real token, top-1 prob, rank of the real token) at every position, two ways: teacher-forced on a fixed Pile slice (400 pile-10k docs, ≤2048 tok), and recorded step by step over the model's own temperature-1 samples (32 from bare BOS, 32 from 32-token openers, 1536 steps, sampling continues past EOS). HF transformers, bf16, pipelined over 8 GPUs; per-token scalars only (no distributions stored). Trinity TrueBase/Base/Preview share a tokenizer up to 8 reserved-token names, so paired per-position comparison is valid.
+
+**Infrastructure notes.** Both nodes were occupied by luxia's `kotodama` ladder training; Antra authorised preempting (declared resumable). Pinned priority-80 submissions preempt only the job holding the pinned GPUs (unpinned would also have killed luxia's CPU watcher jobs). A `worker.sh` polls a per-node queue directory so one heimdall job serves many tasks. No 405B-Instruct exists on the cluster (hub entries for it and Hermes-3-405B are empty stubs); Antra: 405B base only.
+
+**First result (gemma-2-2b smoke, then Trinity TrueBase vs Base, 291k aligned tokens).** TrueBase is calibrated: mean(H − s) = −0.006 on Pile and within ±0.03 in every Pile domain. Base: −0.035 overall, −0.03 to −0.09 per domain. Annealing lowered CE by 0.11, H by 0.14, V by 0.33 across all entropy bins. The 1,620 "collapsed branch points" (TrueBase H ≥ 2, Base H < 0.3) are places where Base is *right* 97 % of the time: verbatim recall, 900 of them Wikipedia, 625 from a single article (William Aberhart). Wikipedia CE fell 27 % vs 4 % for web text; share of Wikipedia tokens inside verbatim runs (≥16 consecutive rank-0, H<0.2 tokens) 4 % → 15 %. So the anneal's fingerprint is memorization of its up-weighted sources, not degeneration.
+
+**Dead end.** Free-running collapse is not diagnostic: at T=1 both TrueBase and Base fall into single-glyph attractors (`‚‚‚‚`, `❨❨❨`, U+200F) in ~25–30 % of 1536-step rollouts, TrueBase slightly more. Rollout statistics move non-monotonically across the triple; Preview (instruct) is the *least* degenerate.
+
+**Goal refined (Antra):** a reference-free classifier — score an unknown checkpoint for how much of a true base it is.
+
+**Contamination control.** The Pile is in everyone's training data, so Pile recitation conflates "annealed" with "has seen this text". Added a post-cutoff corpus (UncheatableEval 2026-04: 60 docs × 15 categories, ≈1.3M tokens) and a 150-Wikipedia + 60-GitHub supplement for the memorization features. Decisive: on fresh text TrueBase gap = **+0.008** (domain |mean| 0.012), Base −0.065, Preview −0.099; verbatim share 1.5 % → 10 % → 11 %. Memorization is frozen Base → Preview (post-training added none); miscalibration is cumulative.
+
+**Qwen3-30B-A3B-Base** is calibrated on fresh text (−0.022) but 41 % of its bare-BOS samples are instruction-formatted ("Assistant: Let's break down…") — a second axis: what the prior contains.
+
+**OLMo-2 7B ladder** downloaded (stage-1 at 2.9T/3.9T, stage-2 anneal at 5B/17B/50B, soup, SFT, DPO, Instruct; 190 GB to node2). Fresh gap: +0.016, +0.013 → +0.005, +0.002, +0.002 → −0.006 → **−0.40 → −0.85 → −0.92**. The anneal leaves calibration intact and moves only the prior axis (marker rate 0 → 22 → 31 %). So "annealed" is lab-specific: Trinity's anneal memorized and miscalibrated; OLMo's injected instruction data. Both axes are needed.
+
+**Other findings.** Llama-3.1-405B base on Pile: gap −0.034 and 25 % of Wikipedia tokens in verbatim runs (22 % on the 150-doc set): a strongly annealed base on this scale. gemma-2-9b base (distilled from a larger teacher): gap −0.158 — distillation is a third route off "true base". GLM-4-32B-Base 0.96, Llama-70B 0.92, Gemma-4-31B-Base 0.90 (not distilled).
+
+**Score v0.** Four clipped ramps, averaged: calibration gap on fresh text (0 → −0.10), per-domain |gap| (0.015 → 0.10), Wikipedia verbatim share (0.02 → 0.12), instruction-marker rate in BOS samples (0 → 0.40). Anchors from the Trinity triple, checked on the OLMo ladder. Page published.
+
+**Operational.** Transient CUDA faults (init failure on node1; `unspecified launch failure` during a 70B-Instruct rollout on node2) — retries succeeded. gemma-4-31B-it produces garbage under HF loading (CE 6.0) though its shards are complete; excluded, unresolved.
+
+## 2026-10-10 — the FP8 giants
+
+Antra: add Kimi K2, DeepSeek-V3 and MiMo pairs, their instructs, and Cogito 671B (a light finetune of V3-Base). All FP8 e4m3 block-128 custom-code checkpoints. Lessons: transformers 5.18's FP8 path needs `kernels==0.17.0` and Hub access for kernel binaries (`HF_HUB_OFFLINE=0`); forcing `DeepseekV3Config` on a `kimi_k2` checkpoint silently skips the key conversion (fused experts missing → CE 9.96) — fixed with a shadow directory whose config says `model_type: deepseek_v3`; on-the-fly FP8 quantization doesn't work for MoE experts (Cogito, bf16 1.3 TB, doesn't fit HF on 8×B200) → built a vLLM-based scorer: a V1 `LogitsProcessor` plugin records exact H/V/s per step and forces the known next token by masking logits, so teacher forcing is a decode replay. Bug found and fixed in it: `BatchUpdate` must be processed removed → added → moved, otherwise a reused batch slot's request is silently unforced. Verified token-for-token on Cogito.
+
+Results (fresh gap): DeepSeek-V3-Base −0.021 (0.88), V3 chat −0.244; K2-Base −0.016 but 15.6 % Wikipedia recitation (0.66), K2-Instruct −0.203 and only 2.6 % recitation (post-training erased it; V3 chat kept its base's 4 %); Cogito −0.256 — the "light" finetune moved calibration as much as a full chat recipe. MiMo-V2.5: unresolved (HF quantizer vs. remote-code expert layout; vLLM 0.30 produced word salad).
+
+A redeploy of the task files from the Mac overwrote node-side edits (K2 shadow path) and produced a garbage run that had to be redone; lesson: keep the canonical task files in one place.
+
+## 2026-10-11 — Gwern's surname test, weird genres, self-bootstrapping
+
+**Antra:** check weird texts rather than Wikipedia; what about Gwern's surname-distribution test (random American surnames vs. SSDF/Census); can there be a probe-independent, self-bootstrapping detector?
+
+**Surname test design.** Census 2010 counts (SSA first names blocked). Exact: log P(name | frame) for the top 2,000 surnames (Title + ALL-CAPS summed), three described frames; sampled lists for junk/diversity. First run showed the test is dominated by the *genre*: told in words that a list is random, every model answers with "list of common surnames" (Smith first) — pre-anneal TrueBase puts 38–56 % on Smith at item 1 — and post-training sharpens this into verbatim recitation of the ranked Census list (V3-Base 12 % on Smith under the plain frame, V3 chat 84 %). Added three few-shot frames (six genuine Census draws as items 1–6, read item 7): the genre is broken and the prior itself is read. Few-shot KL: TrueBase 0.19, OLMo stage-1 0.26/0.25 → anneal 0.29–0.35 → soup 0.29 → SFT 0.83 → DPO 2.40 → Instruct 2.55; Llama-70B **0.12** (Gwern's named example: collapsed under the verbal frame, intact prior), 405B 0.27, V3-Base 0.22, V3 chat 0.21 (prior preserved), K2-Base 0.25, gemma-2-9b 1.14. Sampled lists for Llama models crash reproducibly (`unspecified launch failure` in the HF decode loop when the sampled list degenerates); exact-only mode added.
+
+**Weird genres** (rare Pile sets): TrueBase within ±0.05 in every genre with 0.4 % verbatim runs; K2-Base 1.8 % (its recitation is Wikipedia-specific = anneal mix); chat models −0.18 to −0.29 everywhere.
+
+**Self-bootstrapping.** Top-1 ECE on arbitrary text is the clean probe-free detector (pre-anneal 0.006, bases 0.006–0.012, SFT 0.057, DPO 0.111, Instruct 0.118); first-order statistics of a model's own samples are tautologically calibrated, and own-sample lexical diversity is two-sided (pre-anneal samples are *more* diverse than human text because T=1 unrolling drifts; post-trained samples look most human). Realised tail: post-training raises the rate of real tokens with surprisal > 10 nats by 30–200 % and makes the gap at H > 4 −0.3 to −1.1 (bases ≈ 0). Proposed but not done: record predicted tail mass (p < 1e-2/1e-3/1e-4) per position and add a genuinely OOD corpus.
+
+## 2026-10-12 — Qwen2.5-72B, MiMo root cause
+
+Qwen2.5-72B base: calibrated (−0.009, ECE 0.007), no recitation, but 47 % instruction-shaped BOS samples; few-shot surname KL 0.30; Instruct −0.240. Checkpoints on BeeGFS (both `/models` disks full).
+
+MiMo-V2.5 diagnosed properly: not TP (PP=2/TP=1 also garbage). vLLM 0.30's loader re-shards the fused FP8 `qkv_proj` assuming a per-KV-head interleaved "Pro" layout; the 48L checkpoint (4 KV heads on global layers, 8 on sliding-window layers) is standard `[Q|K|V]` — its own modeling code splits it so. Upstream fixed this after 0.30 (Sep 19/29 commits); upstream `main`'s `mimo_v2.py` dropped into the env makes it coherent. The old prism `mimo-v2.5-base` entry would have been garbage too; Pro-Base (8/8 heads) was never affected. MiMo-V2.5-Base: −0.019, 28 % markers, described surname KL 0.46, few-shot 0.235 → 0.76. Instruct failed three times on node1 (scheduler KeyError, then NCCL barrier timeouts), with orphaned engine processes holding GPUs; luxia's agent correctly cancelled a duplicate worker. Lesson: kill by PID, never `pkill -f` with a pattern that matches the ssh shell.
+
+## 2026-10-13 — Olmo-3, V4-Flash, the site
+
+MiMo-V2.5 instruct ran first try on node2 (−0.289, ECE 0.042, few-shot 0.41 → 0.32): node1 was the problem. Olmo-3-32B base: −0.033 (vs OLMo-2 7B soup −0.006), ECE 0.006, 16 % markers, few-shot 0.375 → 0.77 — OLMo-3's mid-training costs calibration where OLMo-2's anneal did not; a stage-1 32B checkpoint would localize it. DeepSeek-V4-Flash-Base (vLLM, `--prepend-bos` because the V4 tokenizer adds none): −0.029, 0 % markers, described surname KL **0.27** (no ranked-list reflex), few-shot 0.133 → 0.88; its few-shot lists drift into "You started with a seed of 1035…" raffle text, a synthetic-data signature the marker list misses. V4-Flash instruct: −0.404, ECE 0.053, high-entropy gap −0.80, recites the ranked list, few-shot 0.238 → 0.49.
+
+**Site.** Antra: a permanent, maintained True Base Bench site by Anima Labs — Railway hosting, OVH S3 for data, built by an Opus workflow with animated explainers. Spec written (`docs/SPEC.md`), bundle v1 exported (32 models), workflow launched (design direction → scaffold → explainers/content/infra → integrate → three-lens review → fix → verify).
+
+**Open questions.**
+- Predicted tail mass (tail reliability) and an OOD corpus — the rigorous version of the rare-sequence question.
+- A pre-anneal checkpoint for OLMo-3 32B and for Qwen (none public) to extend the ladders.
+- Why gemma-4-31B-it loads to garbage under HF while the Base loads fine.
+- Whether the synthetic-data signatures in bases' own samples (Qwen's instruction formatting, V4-Flash's seeded raffles, K2's Chinese exam items) can be measured language-agnostically rather than with an English marker list.
+- The ramp anchors are set by eye from two ladders; with ~36 models a fitted one-dimensional ordering (e.g. isotonic over training stage) would be more defensible.
