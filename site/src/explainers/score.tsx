@@ -9,7 +9,7 @@ import { SUB_KEYS, type Model, type SubKey } from "../data/types";
 import { get, path } from "../data/bundle";
 import { rampSpecimen, ranked, sameScorePair, recipeTrio, STAGE_CODE } from "../data/derive";
 import { RAMPS, SUB_META } from "../data/method";
-import { subScore } from "../data/scoring";
+import { isScoredSub, scoredKeys, scoredKeysOf, subScore } from "../data/scoring";
 import { useWidth } from "../components/Chart";
 import { Num } from "../components/Num";
 import { fmt, fmtNum, fmtTick, isNum } from "../lib/numfmt";
@@ -32,8 +32,9 @@ interface Row {
   edited: boolean;
 }
 
+/** Rows for the keys that are terms of this model's overall (score v1: calib, spread, prior; v0: all four). */
 function rowsOf(m: Model, edits: Partial<Record<SubKey, number>> = {}): Row[] {
-  return SUB_KEYS.map((k) => {
+  return scoredKeysOf(m).map((k) => {
     const e = edits[k];
     if (isNum(e)) return { k, value: e, score: subScore(k, e), edited: true };
     return { k, value: get(m, subPath(k, "value")), score: get(m, subPath(k, "score")), edited: false };
@@ -51,10 +52,10 @@ function AveragePanel({ width, rows, overall, prog, ghost }: { width: number; ro
   const n = Math.max(1, rows.filter((r) => isNum(r.score)).length);
   const L = 38;
   const R = 70;
-  const u = (width - L - R) / 4;
+  const u = (width - L - R) / Math.max(3, rows.length);
   const rowH = 14;
   const top = 6;
-  const sumY = top + 4 * rowH + 18;
+  const sumY = top + rows.length * rowH + 18;
   const ovY = sumY + 40;
   const a = easeInOut(seg(prog, 0, 0.5));
   const b = easeInOut(seg(prog, 0.55, 1));
@@ -208,6 +209,16 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
     if (st.step < 4) st.goto(4);
   };
   const pile = P.subscores?.calib?.source === "calib_gap";
+  const SCORED = scoredKeys(bundle);
+  const probeKeys = SUB_KEYS.filter((k) => !SCORED.includes(k));
+  const nWord = SCORED.length === 3 ? "Three" : SCORED.length === 4 ? "Four" : String(SCORED.length);
+  const probeScore = (m: Model, k: SubKey) => get(m, subPath(k, "score"));
+  const listScores = (m: Model) => SCORED.map((k, i) => (
+    <span key={k}>
+      {i ? ", " : ""}
+      {k} <N m={m} k={subPath(k, "score")} f="score" />
+    </span>
+  ));
 
   const half = W >= 560;
   const plotW = half ? (W - 16) / 2 : W;
@@ -250,12 +261,17 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
       title: "Carry the heights over",
       body: (
         <>
-          The heights become sub-scores: calib <N m={P} k={subPath("calib", "score")} f="score" />, spread{" "}
-          <N m={P} k={subPath("spread", "score")} f="score" />, memo <N m={P} k={subPath("memo", "score")} f="score" />, prior{" "}
-          <N m={P} k={subPath("prior", "score")} f="score" />.
+          The heights become sub-scores: {listScores(P)}.
+          {probeKeys.length > 0 && (
+            <>
+              {" "}
+              The {probeKeys.map((k) => SUB_META[k].name.toLowerCase()).join(", ")} ramp ({probeKeys.map((k) => <N key={k} m={P} k={subPath(k, "score")} f="score" />)}) is computed the same
+              way but is a validation probe: it is not a term of the mean.
+            </>
+          )}
         </>
       ),
-      summary: `Sub-scores: ${SUB_KEYS.map((k) => `${k} ${fmt(get(P, subPath(k, "score")), "score")}`).join(", ")}.`,
+      summary: `Sub-scores: ${SCORED.map((k) => `${k} ${fmt(get(P, subPath(k, "score")), "score")}`).join(", ")}${probeKeys.length ? `; probe ${probeKeys.map((k) => `${k} ${fmt(probeScore(P, k), "score")}`).join(", ")} (not in the mean)` : ""}.`,
     },
     {
       title: "Average",
@@ -271,16 +287,12 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
       title: "Same overall, different reasons",
       body: sameReason ? (
         <>
-          {full(C)} (hollow) scores <N m={C} k="score" f="score" />, within 0.005 of {P.label}, from a different profile: calib{" "}
-          <N m={C} k={subPath("calib", "score")} f="score" />, spread <N m={C} k={subPath("spread", "score")} f="score" />, memo{" "}
-          <N m={C} k={subPath("memo", "score")} f="score" />, prior <N m={C} k={subPath("prior", "score")} f="score" />. The sub-scores, not the
-          overall, say what happened to a checkpoint.
+          {full(C)} (hollow) scores <N m={C} k="score" f="score" />, within 0.005 of {P.label}, from a different profile: {listScores(C)}. The
+          sub-scores, not the overall, say what happened to a checkpoint.
         </>
       ) : (
         <>
-          {full(C)} (hollow) scores <N m={C} k="score" f="score" /> from calib <N m={C} k={subPath("calib", "score")} f="score" />, spread{" "}
-          <N m={C} k={subPath("spread", "score")} f="score" />, memo <N m={C} k={subPath("memo", "score")} f="score" />, prior{" "}
-          <N m={C} k={subPath("prior", "score")} f="score" />. Similar overall scores can come from different sub-scores.
+          {full(C)} (hollow) scores <N m={C} k="score" f="score" /> from {listScores(C)}. Similar overall scores can come from different sub-scores.
         </>
       ),
       summary: `${C.label} scores ${fmt(C.score, "score")} with a different sub-score profile.`,
@@ -320,13 +332,17 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
   const figure = (
     <div ref={ref}>
       <div className="xp-ramps" style={{ gridTemplateColumns: half ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)" }}>
-        {SUB_KEYS.map((k) => {
-          const r = rows.find((x) => x.k === k)!;
-          const c = crow.find((x) => x.k === k)!;
+        {[...SCORED, ...probeKeys].map((k) => {
+          const probe = !isScoredSub(P, k);
+          // a probe ramp is drawn like the others (same ramp, same drop) but its height goes nowhere
+          const r = rows.find((x) => x.k === k) ?? { k, value: get(P, subPath(k, "value")), score: get(P, subPath(k, "score")), edited: false };
+          const c = crow.find((x) => x.k === k) ?? { k, value: get(C, subPath(k, "value")), score: get(C, subPath(k, "score")), edited: false };
           return (
-            <div key={k} className="xp-ramp">
+            <div key={k} className={"xp-ramp" + (probe ? " xp-probe" : "")}>
               <p className="xp-sub-label">
-                {SUB_META[k].name} <span className="ink3" style={{ textTransform: "none", letterSpacing: 0 }}>· {SUB_META[k].readsAs}</span>
+                {SUB_META[k].name}
+                {probe && <span className="probe-tag">probe · not in the mean</span>}{" "}
+                <span className="ink3" style={{ textTransform: "none", letterSpacing: 0 }}>· {SUB_META[k].readsAs}</span>
                 {k === "calib" && pile ? <span className="xp-srcchip">calib_gap (Pile fallback)</span> : null}
               </p>
               {isNum(r.value) || showC ? (
@@ -338,7 +354,7 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
                   barLabel={SUB_META[k].short}
                   items={[
                     ...(showC ? [{ id: C.id, stage: C.stage, value: c.value, score: c.score, hollow: true, name: full(C) }] : []),
-                    ...(isNum(r.value) ? [{ id: P.id, stage: P.stage, value: r.value, score: r.score, name: full(P), onDrag: onDrag(k) }] : []),
+                    ...(isNum(r.value) ? [{ id: P.id, stage: P.stage, value: r.value, score: r.score, name: full(P), onDrag: probe ? undefined : onDrag(k) }] : []),
                   ]}
                 />
               ) : (
@@ -372,12 +388,12 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
     </div>
   );
 
-  const anchors = SUB_KEYS.map((k) => `${SUB_META[k].name} 1 at ${SUB_META[k].unit === "share" ? fmtTick(RAMPS[k][0], { pct: true }) : fmtTick(RAMPS[k][0])}, 0 at ${SUB_META[k].unit === "share" ? fmtTick(RAMPS[k][1], { pct: true }) : fmtTick(RAMPS[k][1])}`).join("; ");
+  const anchors = [...SCORED, ...probeKeys].map((k) => `${SUB_META[k].name}${probeKeys.includes(k) ? " (probe)" : ""} 1 at ${SUB_META[k].unit === "share" ? fmtTick(RAMPS[k][0], { pct: true }) : fmtTick(RAMPS[k][0])}, 0 at ${SUB_META[k].unit === "share" ? fmtTick(RAMPS[k][1], { pct: true }) : fmtTick(RAMPS[k][1])}`).join("; ");
   return (
     <ExplainerShell
       id="score"
-      label="Plate F · Four ramps, one score"
-      standfirst="Four raw features, four clipped ramps, one mean. Drag a value to see how the score is built."
+      label={`Plate F · ${nWord} ramps, one score`}
+      standfirst={`${nWord} raw features, ${nWord.toLowerCase()} clipped ramps, one mean${probeKeys.length ? `; the ${probeKeys.map((k) => SUB_META[k].name.toLowerCase()).join(", ")} ramp is shown as a validation probe` : ""}. Drag a value to see how the score is built.`}
       st={st}
       steps={steps}
       picker={picker}
@@ -389,17 +405,17 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
           values are recomputed in the browser with the same ramps and are not measurements; Reset restores the bundle.
         </>
       }
-      sources={[`models[${P.id}].subscores.{calib,spread,memo,prior}.{value,score,source}`, `models[${P.id}].score`, "method.RAMPS (reference.ramps when present)"]}
+      sources={[`models[${P.id}].subscores.{calib,spread,memo,prior}.{value,score,source,scored}`, `models[${P.id}].score`, "method.RAMPS (reference.ramps when present)", "reference.scored_subscores"]}
       data={{
-        columns: ["sub-score", `${P.label} value`, `${P.label} score`, `${C.label} value`, `${C.label} score`],
-        numeric: [false, true, true, true, true],
+        columns: ["sub-score", "scored", `${P.label} value`, `${P.label} score`, `${C.label} value`, `${C.label} score`],
+        numeric: [false, false, true, true, true, true],
         rows: [
-          ...SUB_KEYS.map((k) => {
-            const r = rowsOf(P).find((x) => x.k === k)!;
-            const c = crow.find((x) => x.k === k)!;
-            return [SUB_META[k].name, fmtFeature(k, r.value), fmtNum(r.score, "score"), fmtFeature(k, c.value), fmtNum(c.score, "score")];
+          ...[...SCORED, ...probeKeys].map((k) => {
+            const rv = get(P, subPath(k, "value"));
+            const cv = get(C, subPath(k, "value"));
+            return [SUB_META[k].name, SCORED.includes(k) ? "yes" : "no (probe)", fmtFeature(k, rv), fmtNum(get(P, subPath(k, "score")), "score"), fmtFeature(k, cv), fmtNum(get(C, subPath(k, "score")), "score")];
           }),
-          ["overall", "", fmtNum(P.score, "score"), "", fmtNum(C.score, "score")],
+          ["overall", "", "", fmtNum(P.score, "score"), "", fmtNum(C.score, "score")],
         ],
       }}
       numbers={[

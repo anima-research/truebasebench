@@ -2,16 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useBundle, useLoaded } from "../data/BundleContext";
 import { byId, fp, get, path } from "../data/bundle";
-import { CI_KEY, defaultCompare, fmtParams, nAvailable, params, preAnnealBand, ranked } from "../data/derive";
+import { CI_KEY, defaultCompare, fmtParams, nAvailable, nScored, params, preAnnealBand, ranked } from "../data/derive";
 import { ciBounds } from "../data/ci";
 import { fmtMass, oodRows, PriorMassBars, TAIL_KS, tailLabel, TailMassRows, TailReliabilityDiagram, withCI } from "../charts/TailPriorCharts";
 import { describe, GROUPS } from "../data/glossary";
 import { SUB_META } from "../data/method";
-import { meanOfStored } from "../data/scoring";
+import { isScoredSub, meanOfStored, scoredKeysOf } from "../data/scoring";
 import { SUB_KEYS, type Model, type TailKey } from "../data/types";
 import { NotFound } from "../App";
 import { Glyph, StageLegend } from "../components/Glyph";
 import { Num } from "../components/Num";
+import { ReciteBadge } from "../components/ReciteBadge";
+import { memoValue, recitation, recitationAnchors } from "../data/derive";
 import { DataNote, NullPlate, Plate, SourceLine } from "../components/Plate";
 import { ScoreBar, DivergingBar } from "../components/Bars";
 import { CopyButton, downloadJson } from "../components/CopyButton";
@@ -206,6 +208,7 @@ export default function ModelPage() {
   };
   const rk = ranked(bundle).find((r) => r.model.id === model.id)!;
   const nAvail = nAvailable(model);
+  const rampKeys = [...scoredKeysOf(model), ...SUB_KEYS.filter((k) => !isScoredSub(model, k))];
   const arith = meanOfStored(model.subscores);
   const diff = arith.mean !== null && model.score !== null ? arith.mean - model.score : null;
   const band = preAnnealBand(bundle);
@@ -240,6 +243,15 @@ export default function ModelPage() {
               <code>{model.id}</code>
               <CopyButton text={model.id} label="Copy id" />
             </div>
+            {recitation(bundle, model) && (
+              <p className="mp-recite">
+                <ReciteBadge m={model} size={11} />{" "}
+                {recitation(bundle, model) === "flagged" ? "Base-like distribution, Wikipedia-annealed: " : "Elevated recitation: "}
+                <Num path={P("subscores.memo.value")} value={memoValue(model)} fmt="pct" derived="X_runfrac_wiki (fallback verbatim_run_frac_wiki)" /> of Wikipedia tokens fall in
+                verbatim runs (anchor <Num path="method.RAMPS.memo[1]" value={recitationAnchors(bundle)[1]} fmt="pct" def />
+                {recitation(bundle, model) === "elevated" ? <>; elevated above <Num path="method.RAMPS.memo[0]" value={recitationAnchors(bundle)[0]} fmt="pct" def /></> : null}). A validation probe, not a term of the score.
+              </p>
+            )}
             <div className="mp-overall">
               <span className="big">
                 <Num path={P("score")} fmt="score" />
@@ -247,7 +259,7 @@ export default function ModelPage() {
               <ScoreBar value={model.score} width={240} height={10} ticks title={`overall ${fmtNum(model.score, "score")}`} />
               <span className="ink2">
                 rank {rk.tie ? "=" : ""}
-                {rk.rank} of {bundle.models.length} · mean of {nAvail} sub-scores
+                {rk.rank} of {bundle.models.length} · mean of {nAvail} of {nScored(model)} scored sub-scores
               </span>
             </div>
             <p className="small ink3" style={{ marginTop: 6 }}>
@@ -301,13 +313,14 @@ export default function ModelPage() {
           <Section {...SEC.ramps}>
             <Plate
               label="Plate M2 · Raw features on their ramps"
-              caption="Each sub-score is a clipped linear ramp between a true-base anchor (1) and a post-trained anchor (0). Shaded zones are clipped. Hollow glyphs on the x axis are compare models."
+              caption={`Each sub-score is a clipped linear ramp between a true-base anchor (1) and a post-trained anchor (0). Shaded zones are clipped. Hollow glyphs on the x axis are compare models. The overall is the mean of the ${nScored(model)} scored ramps; a ramp marked "validation probe" is computed the same way but is not a term of the mean.`}
               sources={SUB_KEYS.map((k) => path(model, `subscores.${k}`))}
               data={{
-                columns: ["sub-score", "feature (source)", "value", "score", ...compare.map((c) => c.label)],
-                numeric: [false, false, true, true, ...compare.map(() => true)],
-                rows: SUB_KEYS.map((k) => [
+                columns: ["sub-score", "scored", "feature (source)", "value", "score", ...compare.map((c) => c.label)],
+                numeric: [false, false, false, true, true, ...compare.map(() => true)],
+                rows: rampKeys.map((k) => [
                   SUB_META[k].name,
+                  isScoredSub(model, k) ? "yes" : "no (probe)",
                   model.subscores?.[k]?.source ?? "—",
                   fmtNum(model.subscores?.[k]?.value ?? null, "raw"),
                   fmtNum(model.subscores?.[k]?.score ?? null, "score"),
@@ -316,12 +329,18 @@ export default function ModelPage() {
               }}
             >
               <div className="ramps-grid">
-                {SUB_KEYS.map((k) => {
+                {rampKeys.map((k) => {
                   const src = model.subscores?.[k]?.source;
+                  const probe = !isScoredSub(model, k);
                   return (
-                    <div key={k}>
+                    <div key={k} className={probe ? "ramp-probe" : undefined}>
                       <h3 style={{ fontFamily: "var(--f-sans)", fontSize: 13, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         {SUB_META[k].name}
+                        {probe && (
+                          <span className="probe-tag" title="computed with its ramp, shown for validation; not a term of the overall">
+                            validation probe · not in the mean
+                          </span>
+                        )}
                         {src && (
                           <span className="src-chip" title="subscores.source">
                             {src}
@@ -347,7 +366,7 @@ export default function ModelPage() {
                 })}
               </div>
               <p className="arith">
-                ({arith.parts.map((p) => (p === null ? "—" : fmtNum(p, "score"))).join(" + ")}) / {arith.n} = {fmtNum(arith.mean, "score")}
+                <span className="ink3">{arith.keys.map((k) => SUB_META[k].short).join(" + ")}: </span>({arith.parts.map((p) => (p === null ? "—" : fmtNum(p, "score"))).join(" + ")}) / {arith.n} = {fmtNum(arith.mean, "score")}
                 {diff !== null && Math.abs(diff) <= 1e-9 ? <span className="ink3"> · matches bundle score</span> : null}
               </p>
               {diff !== null && Math.abs(diff) > 1e-9 && <DataNote>recomputed differs from the bundle score by {fmt(diff, "raw")}.</DataNote>}

@@ -10,6 +10,8 @@ export interface SubScore {
   score: number | null;
   value: number | null;
   source: string | null;
+  /** score v1 (bundle v7+): false = validation probe, computed with its ramp but not a term of the overall. Absent = scored (v0). */
+  scored?: boolean;
 }
 
 /** [lo, hi, count, mean_confidence, accuracy] */
@@ -157,6 +159,9 @@ export interface Reference {
   ramps?: Record<string, [number, number]> | null;
   method?: { run_min_len?: number; run_H_max?: number; marker_list?: string[] } | null;
   surname_frames?: { desc?: string[]; few?: string[] } | null;
+  /** 0 (absent, bundles v1–v6: all four sub-scores in the mean) or 1 (calib, spread, prior; memo is a probe) */
+  score_version?: number | null;
+  scored_subscores?: SubKey[] | null;
   /** template name -> {set: instr|ctrl, text} for the prior probe */
   prior_openers?: Record<string, { set: "instr" | "ctrl"; text: string }> | null;
   passes?: Record<string, unknown> | null;

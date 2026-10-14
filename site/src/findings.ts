@@ -6,6 +6,7 @@
 import { fp, get } from "./data/bundle";
 import { basePairFor, collapseSpecimen, ladder, median, memoTriple, memoValue, preAnnealBand, specimenFamily, specimenPair } from "./data/derive";
 import { SURNAME_FRAMES } from "./data/method";
+import { spearman } from "./lib/stats";
 import type { Bundle, Model } from "./data/types";
 
 /** Definitions used by the checks (not measurements). */
@@ -374,15 +375,7 @@ export function f7(b: Bundle): F7 {
   const postMed = median(posts);
   // exact prior vs sampled marker rate: rank agreement (Spearman sign) over models with both
   const pairs = withPrior.map((m) => ({ x: Math.log10(Math.max(1e-300, get(m, "prior.instr_mass")!)), y: fp(m, "roll_instr_marker_rate") })).filter((p): p is { x: number; y: number } => num(p.y));
-  const rank = (xs: number[]) => xs.map((v) => xs.filter((u) => u < v).length);
-  const rho = (() => {
-    if (pairs.length < F7_MIN) return null;
-    const rx = rank(pairs.map((p) => p.x));
-    const ry = rank(pairs.map((p) => p.y));
-    const d2 = rx.reduce((a, r, i) => a + (r - ry[i]) ** 2, 0);
-    const n = pairs.length;
-    return 1 - (6 * d2) / (n * (n * n - 1));
-  })();
+  const rho = pairs.length < F7_MIN ? null : spearman(pairs.map((p) => [p.x, p.y]));
   // distilled bases are the documented exception on noise (gemma-2-9b: -3.2 nats on base64); the registry labels them
   const isDistilled = (m: Model) => /distill/i.test(m.label) || /distill/i.test(m.id);
   const noiseBad = withOod.filter((m) => isBase(m) && !isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -FINDING_DEFS.F7_NOISE_TOL);

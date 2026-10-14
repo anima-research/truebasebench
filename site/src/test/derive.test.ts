@@ -134,3 +134,50 @@ describe("bootstrap intervals (bundle v6)", async () => {
     expect(Object.keys(CI_KEY).sort()).toEqual(["calib", "memo", "prior", "spread"]);
   });
 });
+
+describe("score v1 helpers", async () => {
+  const { nAvailable, nScored, probeValue } = await import("../data/derive");
+  const { spearman, ranks } = await import("../lib/stats");
+  const base = { id: "x", family: "F", stage: "base", label: "x", order: 0, score: null, fingerprint: null, surnames: { KL_few: 0.4 }, weird: null, selfboot: null, tail: null } as const;
+  it("nScored / nAvailable read the row's scored flags (absent = scored)", () => {
+    const v0 = { ...base, subscores: { calib: { score: 1, value: 0, source: "F_calib_gap" }, spread: { score: 1, value: 0, source: "x" }, memo: { score: 0.5, value: 0.07, source: "x" }, prior: null } } as never;
+    expect(nScored(v0)).toBe(4);
+    expect(nAvailable(v0)).toBe(3);
+    const v1 = { ...base, subscores: { calib: { score: 1, value: 0, source: "x", scored: true }, spread: { score: 1, value: 0, source: "x", scored: true }, memo: { score: 0.5, value: 0.07, source: "x", scored: false }, prior: { score: 0.2, value: 0.3, source: "x", scored: true } } } as never;
+    expect(nScored(v1)).toBe(3);
+    expect(nAvailable(v1)).toBe(3);
+    expect(probeValue(v1, "memo")).toBe(0.07);
+    expect(probeValue(v1, "KL_few")).toBe(0.4);
+  });
+  it("spearman: perfect, inverse, ties, degenerate", () => {
+    expect(spearman([[1, 2], [2, 4], [3, 9]])).toBeCloseTo(1, 12);
+    expect(spearman([[1, 9], [2, 4], [3, 2]])).toBeCloseTo(-1, 12);
+    expect(ranks([10, 20, 20, 30])).toEqual([1, 2.5, 2.5, 4]);
+    expect(spearman([[1, 1], [2, 1], [3, 1]])).toBeNull();
+    expect(spearman([[1, 1], [2, 2]])).toBeNull();
+  });
+});
+
+describe("recitation flag (score v1)", async () => {
+  const { recitation, recitationAnchors, recitedList } = await import("../data/derive");
+  const { RAMPS } = await import("../data/method");
+  type B = import("../data/types").Bundle;
+  const row = (id: string, v: number | null, stage = "base") =>
+    ({ id, family: "F", stage, label: id, order: 0, score: 0.9, subscores: { calib: null, spread: null, memo: null, prior: null }, fingerprint: v === null ? {} : { X_runfrac_wiki: v }, surnames: null, weird: null, selfboot: null, tail: null }) as never;
+  const b = { reference: {}, models: [row("a", 0.224), row("b", 0.12), row("c", 0.05), row("d", 0.02), row("e", 0.0), row("f", null)] } as unknown as B;
+  it("uses the memo ramp anchors: ≥ 0-anchor flagged, > 1-anchor elevated, else null", () => {
+    expect(recitationAnchors(b)).toEqual(RAMPS.memo);
+    expect(recitation(b, b.models[0])).toBe("flagged");
+    expect(recitation(b, b.models[1])).toBe("flagged"); // at the anchor
+    expect(recitation(b, b.models[2])).toBe("elevated");
+    expect(recitation(b, b.models[3])).toBeNull(); // at the 1-anchor is not elevated
+    expect(recitation(b, b.models[4])).toBeNull();
+    expect(recitation(b, b.models[5])).toBeNull(); // not measured
+    expect(recitedList(b).map((x) => x.model.id)).toEqual(["a", "b"]);
+  });
+  it("reads reference.ramps.memo when the bundle carries it", () => {
+    const b2 = { ...b, reference: { ramps: { memo: [0.1, 0.3] } } } as unknown as B;
+    expect(recitationAnchors(b2)).toEqual([0.1, 0.3]);
+    expect(recitation(b2, b.models[0])).toBe("elevated");
+  });
+});

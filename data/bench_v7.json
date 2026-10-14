@@ -6885,7 +6885,7 @@
    "id": "DeepSeek-V4-Flash-Base-fp4",
    "family": "DeepSeek V4 Flash",
    "stage": "base",
-   "label": "Base (experts re-quantised to MXFP4 — quantisation control)",
+   "label": "Base (FP4 control)",
    "order": 1,
    "score": 0.92529420015323,
    "subscores": {

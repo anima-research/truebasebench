@@ -49,7 +49,7 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
     "student": "gemma-2-9b",
   },
   "f4": {
-    "postRepMedian": 0.161,
+    "postRepMedian": 0.199,
     "specimen": "Trinity-Large-TrueBase",
   },
   "f5": {
@@ -64,11 +64,11 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
     "baseHiExceptions": [
       "gemma-2-9b",
     ],
-    "baseHiMedian": -0.026,
+    "baseHiMedian": -0.028,
     "gapExceptions": [
+      "Trinity-Large-Preview",
       "Llama-3.1-70B-Instruct-new",
       "gemma-2-9b-it",
-      "Trinity-Large-Preview",
     ],
     "gapRange": [
       0.322,
@@ -85,9 +85,9 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
   },
   "f7": {
     "pending": [],
-    "withOod": 31,
-    "withPrior": 31,
-    "withTail": 34,
+    "withOod": 37,
+    "withPrior": 37,
+    "withTail": 37,
   },
 }
 `;

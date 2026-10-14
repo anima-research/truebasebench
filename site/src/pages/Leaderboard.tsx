@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useBundle, useLoaded } from "../data/BundleContext";
-import { CI_KEY, ciBounds, ciScore, compareOverall, familiesOf, fmtParams, ladder, ladderColumns, nAvailable, params, ranked, SIZE_LABEL, sizeBucket, STAGE_CODE, stageOrder, type SizeBucket } from "../data/derive";
-import { RAMPS, SUB_META } from "../data/method";
+import { CI_KEY, ciBounds, ciScore, compareOverall, familiesOf, fmtParams, ladder, ladderColumns, nAvailable, nScored, params, probeValue, ranked, SIZE_LABEL, sizeBucket, STAGE_CODE, stageOrder, type SizeBucket } from "../data/derive";
+import { PROBE_KEYS, PROBE_META, RAMPS, SUB_META, type ProbeKey } from "../data/method";
+import { isScoredSub, scoredKeys, scoredKeysOf } from "../data/scoring";
 import { SUB_KEYS, type Model, type Stage, type SubKey } from "../data/types";
 import { fmt, fmtNum } from "../lib/numfmt";
 import { useReducedMotion } from "../lib/motion";
@@ -11,9 +12,12 @@ import { RampCell, ScoreBar } from "../components/Bars";
 import { Plate, Chevron } from "../components/Plate";
 import { LadderStrip } from "../components/LadderStrip";
 import { Num } from "../components/Num";
+import { ReciteBadge } from "../components/ReciteBadge";
+import { recitation } from "../data/derive";
 import { linear } from "../lib/scale";
 
-type SortKey = "overall" | SubKey | "model" | "stage" | "size";
+type SortKey = "overall" | SubKey | ProbeKey | "model" | "stage" | "size";
+export const PROBE_NOTE = "validation probe: not a term of the score; the score should predict it";
 const SIZES: SizeBucket[] = ["lt15", "15to100", "gt100", "unknown"];
 
 function csv(v: string | null): string[] {
@@ -51,6 +55,36 @@ function headerTitle(k: SubKey): string {
   return `${m.name}: ${m.feature}; ${anchorsText(k)}. Reads as ${m.readsAs}.`;
 }
 
+function probeTitle(k: ProbeKey): string {
+  const p = PROBE_META[k];
+  return `${p.name} (${PROBE_NOTE}): ${p.feature}. ${p.readsAs}.`;
+}
+
+/** Validation-probe cell: Wikipedia verbatim share (value, its v0 ramp as a faint bar) or few-shot surname KL (value with its 3-frame range). */
+function ProbeCell({ m, k }: { m: Model; k: ProbeKey }) {
+  const bundle = useBundle();
+  const v = probeValue(m, k);
+  const ci = ciBounds(m, PROBE_META[k].ci);
+  if (k === "memo") {
+    const s = m.subscores?.memo?.score ?? null;
+    const rec = recitation(bundle, m);
+    const title = `${probeTitle(k)} ${fmt(v, "pct")}${ci ? ` [${fmt(ci[0], "pct")}, ${fmt(ci[1], "pct")}]` : ""}; its v0 ramp would give ${fmtNum(s, "score")} (${anchorsText("memo")})${rec ? `; recitation ${rec}` : ""}`;
+    return (
+      <span className={"subcell probe" + (rec ? ` ${rec}` : "")} title={title}>
+        <ScoreBar value={s} width={40} height={6} title={title} range={ciScore(m, "memo")} />
+        <span className="v">{fmt(v, "pct")}</span>
+      </span>
+    );
+  }
+  const title = `${probeTitle(k)} ${fmt(v, "kl")}${ci ? `; range over the three few-shot frames [${fmt(ci[0], "kl")}, ${fmt(ci[1], "kl")}]` : ""}`;
+  return (
+    <span className="subcell probe" title={title}>
+      <span className="v kl">{fmtNum(v, "kl")}</span>
+      {ci && <span className="rng">[{fmtNum(ci[0], "kl")}, {fmtNum(ci[1], "kl")}]</span>}
+    </span>
+  );
+}
+
 function SubCell({ m, k, raw }: { m: Model; k: SubKey; raw: boolean }) {
   const s = m.subscores?.[k] ?? null;
   const title = cellTitle(m, k);
@@ -74,8 +108,8 @@ function SubCell({ m, k, raw }: { m: Model; k: SubKey; raw: boolean }) {
 function MicroBars({ m }: { m: Model }) {
   return (
     <span className="micro">
-      {SUB_KEYS.map((k) => (
-        <span key={k} title={cellTitle(m, k)}>
+      {[...scoredKeysOf(m), ...SUB_KEYS.filter((k) => !isScoredSub(m, k))].map((k) => (
+        <span key={k} title={isScoredSub(m, k) ? cellTitle(m, k) : `${PROBE_NOTE}: ${cellTitle(m, k)}`} className={isScoredSub(m, k) ? undefined : "probe"}>
           <span className="k">{SUB_META[k].short}</span>
           <ScoreBar value={m.subscores?.[k]?.score ?? null} width={36} height={5} />
           <span className="v">{fmtNum(m.subscores?.[k]?.score ?? null, "score")}</span>
@@ -87,13 +121,15 @@ function MicroBars({ m }: { m: Model }) {
 
 function Comb({ m }: { m: Model }) {
   const h = 24;
+  const keys = [...scoredKeysOf(m), ...SUB_KEYS.filter((k) => !isScoredSub(m, k))];
   return (
-    <svg width={4 * 12} height={h + 12} role="img" aria-label={SUB_KEYS.map((k) => `${SUB_META[k].name} ${fmtNum(m.subscores?.[k]?.score ?? null, "score")}`).join(", ")}>
-      {SUB_KEYS.map((k, i) => {
+    <svg width={keys.length * 12} height={h + 12} role="img" aria-label={keys.map((k) => `${SUB_META[k].name} ${fmtNum(m.subscores?.[k]?.score ?? null, "score")}${isScoredSub(m, k) ? "" : " (probe)"}`).join(", ")}>
+      {keys.map((k, i) => {
         const v = m.subscores?.[k]?.score ?? null;
+        const probe = !isScoredSub(m, k);
         return (
-          <g key={k} transform={`translate(${i * 12},0)`}>
-            <title>{cellTitle(m, k)}</title>
+          <g key={k} transform={`translate(${i * 12},0)`} opacity={probe ? 0.5 : 1}>
+            <title>{probe ? `${PROBE_NOTE}: ${cellTitle(m, k)}` : cellTitle(m, k)}</title>
             <rect width={6} height={h} fill={v === null ? "url(#hatch)" : "var(--track)"} />
             {v !== null && <rect y={h - v * h} width={6} height={v * h} fill="var(--bar)" />}
             <text x={3} y={h + 11} textAnchor="middle">
@@ -266,6 +302,8 @@ export default function Leaderboard() {
           return stageOrder.indexOf(m.stage);
         case "size":
           return params(m).total_b;
+        case "KL_few":
+          return probeValue(m, "KL_few");
         default:
           // with raw features shown, sort by what is shown: the unclipped feature, oriented like the score
           return raw ? rampPosition(m, sort) : m.subscores?.[sort]?.score ?? null;
@@ -347,6 +385,7 @@ export default function Leaderboard() {
 
   const nFam = familiesOf(bundle).length;
   const stageStrip = bundle.models.filter((m) => filtered.includes(m));
+  const SCORED = scoredKeys(bundle);
 
   return (
     <div className="container lb" style={{ ["--ctl-h" as string]: `${ctlH}px` }}>
@@ -354,9 +393,10 @@ export default function Leaderboard() {
         <div className="lb-intro">
           <h1>True Base Bench</h1>
           <p className="lede">
-            How close each of <Num path="n_models" fmt="count" /> checkpoints is to an ideal base model — calibrated on unseen text, nothing memorised,
-            no instruction prior — read from its next-token distributions alone. 1 = indistinguishable from a pre-anneal checkpoint, the empirical
-            anchor. Base-likeness, not capability.
+            How close each of <Num path="n_models" fmt="count" /> checkpoints is to an ideal base model — calibrated on unseen text, in every genre,
+            with no instruction prior — read from its next-token distributions alone. 1 = indistinguishable from a pre-anneal checkpoint, the
+            empirical anchor. Base-likeness, not capability. Two validation probes (Wikipedia recitation, the surname test) are shown beside the
+            score and are not part of it.
           </p>
           <p>
             <Link to="/methodology#score">How the score is built →</Link>
@@ -478,10 +518,16 @@ export default function Leaderboard() {
           >
             <option value="overall:desc">Overall, high first</option>
             <option value="overall:asc">Overall, low first</option>
-            {SUB_KEYS.map((k) => (
+            {SCORED.map((k) => (
               <Fragment key={k}>
                 <option value={`${k}:desc`}>{SUB_META[k].name}, high first</option>
                 <option value={`${k}:asc`}>{SUB_META[k].name}, low first</option>
+              </Fragment>
+            ))}
+            {PROBE_KEYS.map((k) => (
+              <Fragment key={k}>
+                <option value={`${k}:desc`}>{PROBE_META[k].name} (probe), high first</option>
+                <option value={`${k}:asc`}>{PROBE_META[k].name} (probe), low first</option>
               </Fragment>
             ))}
             <option value="model:asc">Model A–Z</option>
@@ -512,12 +558,17 @@ export default function Leaderboard() {
               <SortTh k="size" className="c-size">
                 Size
               </SortTh>
-              <SortTh k="overall" className="c-overall" title="Overall = mean of available sub-scores. 1 = indistinguishable from a pre-anneal checkpoint; distance from a true base, not capability.">
+              <SortTh k="overall" className="c-overall" title={`Overall = mean of the available scored sub-scores (${SCORED.map((k) => SUB_META[k].name).join(", ")}). 1 = indistinguishable from a pre-anneal checkpoint; distance from a true base, not capability.`}>
                 Overall <span className="ink3 small">(base-likeness)</span>
               </SortTh>
-              {SUB_KEYS.map((k) => (
+              {SCORED.map((k) => (
                 <SortTh key={k} k={k} className="c-sub" title={headerTitle(k)}>
                   {SUB_META[k].name}
+                </SortTh>
+              ))}
+              {PROBE_KEYS.map((k, i) => (
+                <SortTh key={k} k={k} className={"c-probe" + (i === 0 ? " first" : "")} title={probeTitle(k)}>
+                  {PROBE_META[k].name} <span className="probe-tag">probe</span>
                 </SortTh>
               ))}
             </tr>
@@ -553,9 +604,10 @@ export default function Leaderboard() {
                   <td className="c-model">
                     <div className="l1">
                       <span className="fam">{m.family}</span> · <Link to={href}>{m.label}</Link>
-                      {n < 4 && (
-                        <span className="cov" title={`${n} of 4 sub-scores measured; overall is the mean of the ${n} available`}>
-                          {n}/4
+                      <ReciteBadge m={m} />
+                      {n < nScored(m) && (
+                        <span className="cov" title={`${n} of ${nScored(m)} scored sub-scores measured; overall is the mean of the ${n} available`}>
+                          {n}/{nScored(m)}
                         </span>
                       )}
                     </div>
@@ -571,9 +623,14 @@ export default function Leaderboard() {
                       <ScoreBar value={m.score} width={90} height={8} ticks title={`overall ${fmtNum(m.score, "score")}`} />
                     </span>
                   </td>
-                  {SUB_KEYS.map((k) => (
+                  {SCORED.map((k) => (
                     <td key={k} className="c-sub">
                       <SubCell m={m} k={k} raw={raw} />
+                    </td>
+                  ))}
+                  {PROBE_KEYS.map((k, i) => (
+                    <td key={k} className={"c-probe" + (i === 0 ? " first" : "")}>
+                      <ProbeCell m={m} k={k} />
                     </td>
                   ))}
                   <td className="c-micro" aria-hidden="true">

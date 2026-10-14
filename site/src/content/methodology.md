@@ -6,21 +6,35 @@ The measurement is reference-free. No model is scored against another model's ou
 
 Numbers quoted on this page are read live from the current data bundle; each one links to the bundle field it came from. Constants that define the method (ramp anchors, run lengths, thresholds) are marked as definitions.
 
-## Four ramps, one score {#score}
+## Three ramps, one score {#score}
 
 Each sub-score is a clipped linear ramp. With feature value x, true-base anchor a (scores 1) and post-trained anchor b (scores 0):
 
 > sub-score = clip((x − b) / (a − b), 0, 1)
 
-The anchors, features and fallbacks:
+The anchors, features and fallbacks; the `scored` column says which ramps are terms of the overall in this bundle:
 
 {{block:anchors}}
 
 For calib, a positive gap is clipped to 0 before the ramp, so under-confidence is not rewarded beyond a perfect score. The anchors were set from the Trinity TrueBase / Base / Preview triple and checked against the OLMo-2 ladder.
 
-**Overall = the mean of the available sub-scores.** A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these four axes". It is a distance from a true base, not a quality ranking; which end of the axis is desirable depends on what the checkpoint is for.
+**Overall = the mean of the available scored sub-scores** ({{val:scored-list}}). A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these {{val:n-scored}} axes". It is a distance from a true base, not a quality ranking; which end of the axis is desirable depends on what the checkpoint is for.
+
+**Score v1.** The first version of the score (v0, bundles 1–6) averaged four ramps: the three above and `memo`, the share of Wikipedia recited verbatim. v1 keeps the memo ramp but takes it out of the mean, and it never admitted the surname test. The reason is what the two measure: the verbatim share responds to one anneal recipe (up-weighting a source the model can then recite), and the surname test to one prompt; both are things a base-like model *should* exhibit rather than statistics of its next-token distribution on unseen text. Scoring them made the score partly circular as evidence — a checkpoint "looked base-like" in part because it did not recite Wikipedia. Under v1 the score is built only from the distribution (calibration gap, domain spread, instruction prior), and the claim is testable: a checkpoint that scores base-like should show little recitation and a population-matching few-shot surname distribution. The next section checks that. Bundles record which version they use (`reference.score_version`, `reference.scored_subscores`; each `subscores.<k>.scored`), and the site recomputes every score with the bundle's own list.
 
 {{explainer:score}}
+
+## Validation probes {#probes}
+
+Two measurements are shown beside the score and are not terms of it: the **Wikipedia verbatim share** (`X_runfrac_wiki`, the memo feature, with its v0 ramp still drawn as a faint bar on the leaderboard) and the **few-shot surname KL** (`surnames.KL_few`, the mean KL(Census ‖ model) over the three few-shot frames). A score that is only a function of the next-token distribution on unseen text should order both: less recitation and a thinner-tailed surname distribution are what post-training and memorising anneals do, and neither entered the ramps.
+
+{{block:probes}}
+
+Read-off, verbatim share: over the {{val:n-memo}} checkpoints with both values, Spearman ρ between the overall score and the verbatim share is {{val:rho-memo}} — {{val:memo-verdict}}. Read-off, surname test: over the {{val:n-kl}} checkpoints with a surname result, ρ between the score and the few-shot KL is {{val:rho-kl}} — {{val:kl-verdict}}. Negative values mean the score predicts the probe in the expected direction (a more base-like score, less recitation or a smaller KL). The two probes are different kinds of check. The surname distribution is a property of the next-token distribution itself, so a score built from that distribution should order it, and the panel says whether it does. The verbatim share is a property of the anneal *recipe*: a checkpoint can score base-like and still have recited Wikipedia if its anneal up-weighted it, and the panel shows base-like scores spanning the full range of recitation. That is why the second probe is carried by a flag rather than a term.
+
+**Recitation flag.** Taking memo out of the mean lets a checkpoint whose anneal recited Wikipedia read as the base-like distribution it is; the flag keeps the second fact visible instead of averaging it away. A checkpoint is **flagged** ("recites" beside its name on the leaderboard and its model page) when its Wikipedia verbatim share is at or above the memo ramp's 0-anchor, {{val:recite-anchor}}, and marked **elevated** when it is above the 1-anchor, {{val:recite-elevated-anchor}}, but below the flag. Flagged in this bundle ({{val:recite-n}}): {{val:recite-list}}.
+
+**Quantisation control.** {{val:quant-control}} is the same checkpoint as {{val:quant-release}} with its experts re-quantised to MXFP4; nothing else differs. Its post-cutoff gap reads {{val:quant-control-gap}} against {{val:quant-release-gap}} for the FP8 release, a difference of {{val:quant-delta}}. That is the offset to read with any checkpoint that is only measurable in the FP4 format (the pending DeepSeek-V4-Pro base will be): weight precision alone moves the gap by about a hundredth of a nat, in the direction of *more* calibrated, which is within the spread of released bases but not within a pre-anneal checkpoint's interval.
 
 ## The measurement pipeline {#pipeline}
 
@@ -162,7 +176,7 @@ What the intervals cover: sampling of documents from the fixed corpus, for one m
 - **Carried in the bundle, not shown.** Several statistics from the project's first pass are in every bundle but on no page, because they turned out to carry no stage signal: the Wasserstein-1 distances between teacher-forced and free-running entropy and varentropy distributions (`W1(TF_H, roll_H)`, `W1(TF_V, roll_V)`, the original "does the model's own text look like the data" probe), the Pile cross-entropy of the `tf` pass (recall, not calibration; its rank correlation with the gap is 0.00), the Zipf slope and gzip ratio of own samples, and the mean Census surprise of sampled surnames. They stay in the data contract so old bundles remain readable.
 - **Varentropy is recorded but not scored.** The project began as a varentropy sweep, and V is kept in every per-position array and in the fingerprint (`F_V/H|H>1`, `Vmed|H2-3`, `roll_V_bos`, `W1(TF_V, roll_V)`, all on the model page). On teacher-forced text it does not order the stages: V/H at H > 1 has stage medians of about 1.9 (pre-anneal), 2.0 (anneal), 1.7 (base) and 1.8 (post-trained). On a model's own bare-BOS samples it does fall through the ladder (medians about 5.2 → 3.1 → 3.0 → 1.6, rank correlation 0.73 with the calibration gap), but it varies across families as much as across stages (two released bases sit at 0.7 and 5.5), so without per-family normalisation it says nothing the gap does not. It stays reported in case a later bundle changes that.
 
-- The anchors come from two families. A recipe that changes the distribution in a way none of the four features sees will score as a true base.
+- The anchors come from two families. A recipe that changes the distribution in a way none of the three scored features sees will score as a true base; the [validation probes](#probes) are the first place that would show.
 - `prior` rests on 32 samples and a marker list; a model that has seen instruction data but never emits its markers unprompted is not caught by it. The [exact prior mass](#prior-exact) is the planned replacement; until it has been measured on every checkpoint it is shown, not scored.
-- `memo` depends on Wikipedia being in the anneal mix. An anneal on other sources can memorise without moving it; the per-genre verbatim shares on `tf_weird` are there to check.
+- `memo` depends on Wikipedia being in the anneal mix. An anneal on other sources can memorise without moving it; the per-genre verbatim shares on `tf_weird` are there to check. Since score v1 it is a [validation probe](#probes), not a term of the score.
 - The post-cutoff corpus is post-cutoff for every model measured so far. A checkpoint trained on data from after April 2026 needs a newer corpus, and the bundle would need a new version.

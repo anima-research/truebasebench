@@ -1,8 +1,9 @@
 /** Derived helpers (DESIGN §6.3, §6.4). Everything is computed from the bundle; no ids are hardcoded. */
 import { ciBounds } from "./ci";
 import { fp, get } from "./bundle";
-import { RAMPS } from "./method";
-import { STAGES, SUB_KEYS, type Bundle, type Model, type Stage, type SubKey } from "./types";
+import { RAMPS, type ProbeKey } from "./method";
+import { scoredKeysOf } from "./scoring";
+import { STAGES, type Bundle, type Model, type Stage, type SubKey } from "./types";
 
 export const stageOrder: Stage[] = STAGES;
 export const STAGE_CODE: Record<Stage, string> = { "pre-anneal": "PRE", anneal: "MID", base: "BASE", "post-trained": "POST" };
@@ -132,8 +133,57 @@ export function compareOverall(a: Model, b: Model): number {
   return a.order - b.order;
 }
 
+/** Available *scored* sub-scores of a row (the denominator of its overall). */
 export function nAvailable(m: Model): number {
-  return SUB_KEYS.filter((k) => typeof m.subscores?.[k]?.score === "number").length;
+  return scoredKeysOf(m).filter((k) => typeof m.subscores?.[k]?.score === "number").length;
+}
+
+/** Number of sub-scores that are terms of this row's overall (3 under score v1, 4 under v0). */
+export function nScored(m: Model): number {
+  return scoredKeysOf(m).length;
+}
+
+/** A validation probe's value for a row: memo = the Wikipedia verbatim share, KL_few = the few-shot surname KL. */
+export function probeValue(m: Model, k: ProbeKey): number | null {
+  return k === "memo" ? get(m, ["subscores", "memo", "value"]) ?? memoValue(m) : get(m, ["surnames", "KL_few"]);
+}
+
+export type Recitation = "flagged" | "elevated" | null;
+
+/** The memo ramp anchors in force for this bundle: [1-anchor, 0-anchor] (reference.ramps.memo, else method RAMPS). */
+export function recitationAnchors(bundle: Pick<Bundle, "reference"> | null | undefined): [number, number] {
+  const r = bundle?.reference?.ramps?.memo;
+  return r && typeof r[0] === "number" && typeof r[1] === "number" ? [r[0], r[1]] : RAMPS.memo;
+}
+
+/**
+ * Recitation flag (score v1): memo is no longer a term of the score, so a base-like distribution that recites Wikipedia
+ * keeps that fact visible. "flagged" at or above the memo ramp's 0-anchor, "elevated" above its 1-anchor, else null.
+ */
+export function recitation(bundle: Pick<Bundle, "reference"> | null | undefined, m: Model): Recitation {
+  const v = memoValue(m);
+  if (v === null) return null;
+  const [one, zero] = recitationAnchors(bundle);
+  if (v >= zero) return "flagged";
+  if (v > one) return "elevated";
+  return null;
+}
+
+/** Flagged checkpoints, highest verbatim share first. */
+export function recitedList(bundle: Bundle): { model: Model; value: number }[] {
+  return bundle.models
+    .filter((m) => recitation(bundle, m) === "flagged")
+    .map((m) => ({ model: m, value: memoValue(m)! }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/** The quantisation control (a base whose label says so) and the release it is a re-quantisation of (same family, base, nearest order). */
+export function quantControl(bundle: Bundle): { control: Model; release: Model } | null {
+  const control = bundle.models.find((m) => /(quanti[sz]ation|fp4) control/i.test(m.label));
+  if (!control) return null;
+  const sibs = bundle.models.filter((m) => m.family === control.family && m.stage === control.stage && m.id !== control.id);
+  sibs.sort((a, b) => Math.abs(a.order - control.order) - Math.abs(b.order - control.order));
+  return sibs[0] ? { control, release: sibs[0] } : null;
 }
 
 export function subScoreOf(m: Model, k: SubKey): number | null {
@@ -207,9 +257,9 @@ export function memoTriple(bundle: Bundle): Model[] | null {
   return best?.trio ?? null;
 }
 
-/** The model with the most sub-scores strictly inside (0, 1); ties go to the overall closest to 0.5. */
+/** The model with the most scored sub-scores strictly inside (0, 1); ties go to the overall closest to 0.5. */
 export function rampSpecimen(bundle: Bundle): Model | null {
-  const inside = (m: Model) => SUB_KEYS.filter((k) => {
+  const inside = (m: Model) => scoredKeysOf(m).filter((k) => {
     const s = subScoreOf(m, k);
     return s !== null && s > 0 && s < 1;
   }).length;
@@ -220,14 +270,15 @@ export function rampSpecimen(bundle: Bundle): Model | null {
 
 /** Among pairs with |Δoverall| < 0.005, the pair with the largest L1 distance between sub-score vectors. */
 export function sameScorePair(bundle: Bundle): { a: Model; b: Model; l1: number } | null {
-  const ms = bundle.models.filter((m) => m.score !== null && nAvailable(m) === 4);
+  const ms = bundle.models.filter((m) => m.score !== null && nAvailable(m) === nScored(m));
   let best: { a: Model; b: Model; l1: number } | null = null;
   for (let i = 0; i < ms.length; i++)
     for (let j = i + 1; j < ms.length; j++) {
       const a = ms[i];
       const b = ms[j];
       if (Math.abs(a.score! - b.score!) >= 0.005) continue;
-      const l1 = SUB_KEYS.reduce((s, k) => s + Math.abs(subScoreOf(a, k)! - subScoreOf(b, k)!), 0);
+      const keys = scoredKeysOf(a).filter((k) => scoredKeysOf(b).includes(k));
+      const l1 = keys.reduce((s, k) => s + Math.abs(subScoreOf(a, k)! - subScoreOf(b, k)!), 0);
       if (!best || l1 > best.l1) best = { a, b, l1 };
     }
   if (best && compareOverall(best.a, best.b) > 0) best = { a: best.b, b: best.a, l1: best.l1 };

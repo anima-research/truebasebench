@@ -22,7 +22,7 @@ In every family with a base and a post-trained rung the post-trained rung is low
 
 {{block:f2-detail}}
 
-After the ramps, the same two moves show up as sub-scores: one family's memo line drops while its prior line stays flat, the other's prior line drops while its memo line stays flat. The table under the plate carries every annealed and released base checkpoint, so each recipe can be placed on the same four axes.
+After the ramps, the same two moves show up as ramp positions: one family's memo probe drops while its prior line stays flat, the other's prior line drops while its memo probe stays flat. The table under the plate carries every annealed and released base checkpoint, so each recipe can be placed on the same four axes (three scored, plus the memo validation probe, which since score v1 is not a term of the overall).
 
 {{block:anneal-profiles}}
 

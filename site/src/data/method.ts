@@ -13,6 +13,19 @@ export const RAMPS: Record<SubKey, [number, number]> = {
   prior: [0.0, 0.4],
 };
 
+/** Score v0 (bundles without reference.scored_subscores): every sub-score is a term of the mean. */
+export const SCORE_V0_KEYS: SubKey[] = ["calib", "spread", "memo", "prior"];
+/** Score v1: only statistics of the next-token distribution; memo (and the surname test) are validation probes. */
+export const SCORE_V1_KEYS: SubKey[] = ["calib", "spread", "prior"];
+
+/** Validation probes: shown next to the score and expected to be predicted by it; never terms of the mean. */
+export const PROBE_META = {
+  memo: { name: "Wiki verbatim", short: "W", feature: "X_runfrac_wiki", readsAs: "share of Wikipedia tokens recited verbatim; an anneal that memorises raises it", ci: "memo_wiki" },
+  KL_few: { name: "Surname KL", short: "K", feature: "surnames.KL_few", readsAs: "KL(Census ‖ model) given six genuine draws; post-training thins the tail", ci: "KL_few" },
+} as const;
+export type ProbeKey = keyof typeof PROBE_META;
+export const PROBE_KEYS: ProbeKey[] = ["memo", "KL_few"];
+
 /** Feature lookup order per sub-score: first non-null wins. */
 export const SOURCES: Record<SubKey, string[]> = {
   calib: ["F_calib_gap", "calib_gap"],

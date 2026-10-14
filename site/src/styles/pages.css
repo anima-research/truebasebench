@@ -43,11 +43,26 @@
 .subcell { display: inline-flex; align-items: center; gap: 6px; }
 .subcell .v { font-size: 12px; color: var(--ink-2); min-width: 3.6ch; }
 .lb-table .c-micro { display: none; }
+/* validation probes: a separate group to the right of the scored sub-scores */
+.lb-table th.c-probe.first, .lb-table td.c-probe.first { border-left: 1px solid var(--rule-strong); }
+.lb-table .c-probe { color: var(--ink-2); }
+.probe-tag { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-strong); padding: 0 3px; margin-left: 4px; vertical-align: middle; }
+.subcell.probe svg { opacity: 0.55; }
+.subcell.probe .v.kl { min-width: 3.2ch; color: var(--ink); }
+.subcell.probe .rng { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.micro > span.probe { opacity: 0.6; }
+/* recitation flag (score v1): a base-like distribution that recites Wikipedia keeps that fact visible */
+.recite { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.04em; color: var(--ink-2); border: 1px solid var(--rule-strong); padding: 0 4px; vertical-align: middle; white-space: nowrap; }
+.recite.flagged { color: var(--ink); border-color: var(--ink-2); }
+.subcell.probe.flagged .v { color: var(--ink); font-weight: 600; }
+.subcell.probe.flagged svg, .subcell.probe.elevated svg { opacity: 0.85; }
+.mp-recite { margin: 6px 0 0; font-size: 14px; color: var(--ink-2); }
 
 @media (max-width: 1099px) {
   .lb-table .c-size { display: none; }
   .lb-table .size-inline { display: inline; }
   .lb-table .c-sub .subcell .v { display: none; }
+  .lb-table .c-probe .subcell .rng { display: none; }
 }
 @media (max-width: 719px) {
   .sort-select { display: inline-flex; }
@@ -69,7 +84,7 @@
   .lb-table .c-model .l2 { font-family: var(--f-sans); font-size: 12px; }
   .lb-table .c-overall { grid-area: overall; }
   .lb-table .c-overall svg { width: 64px; }
-  .lb-table .c-sub, .lb-table .c-size { display: none; }
+  .lb-table .c-sub, .lb-table .c-probe, .lb-table .c-size { display: none; }
   .lb-table .c-micro { display: block; grid-area: micro; padding-left: 34px; }
 }
 .micro { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -120,6 +135,7 @@
 .arith { font-family: var(--f-mono); font-size: 13px; margin: 12px 0 0; overflow-wrap: anywhere; }
 .ramps-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
 @media (max-width: 559px) { .ramps-grid { grid-template-columns: 1fr; } }
+.ramp-probe { opacity: 0.85; border-left: 2px solid var(--rule-strong); padding-left: 10px; }
 .src-chip { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); border: 1px solid var(--rule); padding: 0 4px; }
 .margin-link { font-size: 13px; }
 .tail-table td .delta { display: block; font-size: 12px; color: var(--ink-3); }

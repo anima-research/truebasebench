@@ -113,6 +113,7 @@
 .xp-tag-line { font-size: 11px; font-style: italic; color: var(--ink-3); margin: 4px 0 0; }
 .xp-ramps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
 .xp-ramp { min-width: 0; }
+.xp-ramp.xp-probe { opacity: 0.8; border-left: 2px solid var(--rule-strong); padding-left: 8px; }
 .xp-ramp .xp-sub-label { margin-bottom: 2px; }
 .xp-walk { display: flex; align-items: center; gap: 8px; }
 /* A panel whose step has not been reached: its marks are dimmed, its text stays readable at --ink-3

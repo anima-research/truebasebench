@@ -227,13 +227,13 @@
   "DeepSeek-V4-Flash-Base-fp4": {
    "family": "DeepSeek V4 Flash",
    "stage": "base",
-   "label": "Base (experts re-quantised to MXFP4 \u2014 quantisation control)",
+   "label": "Base (FP4 control)",
    "order": 1
   },
   "DeepSeek-V4-Pro-Base": {
    "family": "DeepSeek V4 Pro",
    "stage": "base",
-   "label": "Base (experts MXFP4, converted from the FP8 release)",
+   "label": "Base (FP4-converted)",
    "order": 0
   },
   "DeepSeek-V4-Pro": {
