@@ -24,6 +24,14 @@ def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
+TAIL_THRESH = (1e-2, 1e-3, 1e-4)  # predicted tail mass: total probability on tokens with p < thr (columns m2, m3, m4)
+
+
+def tail_mass(p):
+    """p: (N, V) probabilities -> (N, 3) mass below each TAIL_THRESH."""
+    return torch.stack([(p * (p < t)).sum(-1) for t in TAIL_THRESH], -1)
+
+
 def dist_stats(logits):
     """logits: (N, V) any float dtype on GPU -> dict of (N,) tensors + logp (N, V) float32."""
     logp = F.log_softmax(logits.float(), dim=-1)
@@ -32,6 +40,15 @@ def dist_stats(logits):
     V = (p * (logp + H[:, None]) ** 2).sum(-1)
     p1, t1 = p.max(-1)
     return H, V, p1, t1, logp
+
+
+def prep_ids(tok, text, max_len, min_len=8, start_id=None):
+    """Tokenize one document; None if too short. start_id: make sure the sequence starts with this id
+    (the prior probe scores P(opener | <bos>) and needs a start token even for tokenizers that add none)."""
+    ids = tok(text, add_special_tokens=True, truncation=True, max_length=max_len)["input_ids"]
+    if start_id is not None and (not ids or ids[0] != start_id):
+        ids = [start_id] + ids[: max_len - 1]
+    return ids if len(ids) >= min_len else None
 
 
 def load_corpus(path):
@@ -67,14 +84,14 @@ def build_corpus(out_path, arrow_path, n_tf, n_openers, min_chars=400, seed=0):
 
 
 @torch.no_grad()
-def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf"):
-    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos"]}
+def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf", min_len=8, start_id=None):
+    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
     meta = []
     t0 = time.time()
     ntok = 0
     for di, d in enumerate(docs):
-        ids = tok(d["text"], add_special_tokens=True, truncation=True, max_length=max_len)["input_ids"]
-        if len(ids) < 8:
+        ids = prep_ids(tok, d["text"], max_len, min_len, start_id)
+        if ids is None:
             continue
         x = torch.tensor(ids, device=model.device)[None]
         try:
@@ -93,6 +110,8 @@ def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf"):
             s = -logp.gather(1, tg[:, None])[:, 0]
             tl = lg.float().gather(1, tg[:, None])
             rank = (lg.float() > tl).sum(-1)
+            tm = tail_mass(logp.exp()).half().cpu()
+            cols["m2"].append(tm[:, 0]); cols["m3"].append(tm[:, 1]); cols["m4"].append(tm[:, 2])
             cols["H"].append(H.half().cpu()); cols["V"].append(V.half().cpu())
             cols["s"].append(s.half().cpu()); cols["p1"].append(p1.half().cpu())
             cols["top1"].append(t1.int().cpu()); cols["rank"].append(rank.int().cpu())
@@ -414,7 +433,8 @@ def main():
             log(f"extra corpus {name} already done, skipping"); continue
         extra = load_corpus(path)
         log(f"extra corpus {name} ({path}): {len(extra['tf'])} docs")
-        teacher_forced(model, tok, extra["tf"], args.max_len, out_dir, tag=name)
+        start_id = (tok.bos_token_id if tok.bos_token_id is not None else tok.eos_token_id) if extra.get("ensure_start") else None
+        teacher_forced(model, tok, extra["tf"], args.max_len, out_dir, tag=name, min_len=extra.get("min_len", 8), start_id=start_id)
     if args.names_probe:
         names_probe(model, tok, out_dir, args.names_probe, args)
     log("ALL DONE")

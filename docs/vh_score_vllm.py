@@ -17,12 +17,12 @@ def collect(tmp, prefix):
     return out
 
 
-def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs):
+def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=None):
     from vllm import SamplingParams
     prompts, params, meta, forces = [], [], [], {}
     for di, d in enumerate(docs):
-        ids = tok(d["text"], add_special_tokens=True, truncation=True, max_length=max_len)["input_ids"]
-        if len(ids) < 8:
+        ids = base.prep_ids(tok, d["text"], max_len, min_len, start_id)
+        if ids is None:
             continue
         prompts.append({"prompt_token_ids": ids[:1]})
         params.append(SamplingParams(max_tokens=len(ids) - 1, temperature=1.0, top_p=1.0, ignore_eos=True,
@@ -32,7 +32,7 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs):
     outs = llm.generate(prompts, params, use_tqdm=False)
     base.log(f"{tag}: {len(prompts)} docs replayed in {time.time()-t0:.0f}s")
     rec = collect(tmp, tag + "_")
-    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos"]}
+    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
     mism = 0
     for m, o in zip(meta, outs):
         r = rec.get(f"{tag}_{m['doc']:04d}")
@@ -43,7 +43,7 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs):
         k = min(n, len(gen), len(r["tok"]))
         if gen[:k] != list(r["tok"][:k]):
             mism += 1
-        for k in ["H", "V", "s", "p1", "top1", "rank"]:
+        for k in ["H", "V", "s", "p1", "top1", "rank", "m2", "m3", "m4"]:
             cols[k].append(r[k][:n])
         cols["tok"].append(np.array(forces[m["doc"]][:n], np.int32))  # the forced targets (vLLM's output list can differ at the final step)
         cols["doc"].append(np.full(n, m["doc"], np.int32)); cols["pos"].append(np.arange(n, dtype=np.int32))
@@ -54,7 +54,8 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs):
             raise RuntimeError("teacher-forced replay integrity failure: " + msg)
         base.log("WARNING (lenient): " + msg)
     arrs = {k: np.concatenate(v) for k, v in cols.items()}
-    arrs["H"], arrs["V"], arrs["s"], arrs["p1"] = (arrs[k].astype(np.float16) for k in ["H", "V", "s", "p1"])
+    for k in ["H", "V", "s", "p1", "m2", "m3", "m4"]:
+        arrs[k] = arrs[k].astype(np.float16)
     return arrs, meta
 
 
@@ -220,7 +221,8 @@ def main():
         if os.path.exists(os.path.join(out_dir, f"{nm}.npz")):
             continue
         extra = base.load_corpus(path)
-        arrs, meta = run_tf(llm, tok, extra["tf"], args.max_len, nm, tmp, sp)
+        start_id = (tok.bos_token_id if tok.bos_token_id is not None else tok.eos_token_id) if extra.get("ensure_start") else None
+        arrs, meta = run_tf(llm, tok, extra["tf"], args.max_len, nm, tmp, sp, min_len=extra.get("min_len", 8), start_id=start_id)
         np.savez_compressed(os.path.join(out_dir, f"{nm}.npz"), **arrs)
         json.dump(meta, open(os.path.join(out_dir, f"{nm}_docs.json"), "w"))
         base.log(f"{nm} done: {len(arrs['H'])} tokens")

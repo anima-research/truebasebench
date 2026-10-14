@@ -1,0 +1,218 @@
+{
+"source": "chat/instruction openers after <bos> (exact prior mass) + natural-document controls",
+"min_len": 2,
+"ensure_start": true,
+"tf": [
+{
+"idx": 0,
+"set": "instr",
+"name": "chatml_user",
+"text": "<|im_start|>user\n"
+},
+{
+"idx": 1,
+"set": "instr",
+"name": "chatml_system",
+"text": "<|im_start|>system\n"
+},
+{
+"idx": 2,
+"set": "instr",
+"name": "llama3_user",
+"text": "<|start_header_id|>user<|end_header_id|>\n\n"
+},
+{
+"idx": 3,
+"set": "instr",
+"name": "llama3_system",
+"text": "<|start_header_id|>system<|end_header_id|>\n\n"
+},
+{
+"idx": 4,
+"set": "instr",
+"name": "olmo_user",
+"text": "<|user|>\n"
+},
+{
+"idx": 5,
+"set": "instr",
+"name": "gemma_user",
+"text": "<start_of_turn>user\n"
+},
+{
+"idx": 6,
+"set": "instr",
+"name": "deepseek_user",
+"text": "<|User|>"
+},
+{
+"idx": 7,
+"set": "instr",
+"name": "mistral_inst",
+"text": "[INST] "
+},
+{
+"idx": 8,
+"set": "instr",
+"name": "alpaca_header",
+"text": "Below is an instruction that describes a task"
+},
+{
+"idx": 9,
+"set": "instr",
+"name": "alpaca_instruction",
+"text": "### Instruction:\n"
+},
+{
+"idx": 10,
+"set": "instr",
+"name": "hash_human",
+"text": "### Human:"
+},
+{
+"idx": 11,
+"set": "instr",
+"name": "human_colon",
+"text": "Human: "
+},
+{
+"idx": 12,
+"set": "instr",
+"name": "user_colon",
+"text": "User: "
+},
+{
+"idx": 13,
+"set": "instr",
+"name": "q_colon",
+"text": "Q: "
+},
+{
+"idx": 14,
+"set": "instr",
+"name": "question_colon",
+"text": "Question: "
+},
+{
+"idx": 15,
+"set": "instr",
+"name": "instruction_colon",
+"text": "Instruction: "
+},
+{
+"idx": 16,
+"set": "instr",
+"name": "prompt_colon",
+"text": "Prompt: "
+},
+{
+"idx": 17,
+"set": "instr",
+"name": "system_helpful",
+"text": "You are a helpful assistant"
+},
+{
+"idx": 18,
+"set": "instr",
+"name": "write_a",
+"text": "Write a "
+},
+{
+"idx": 19,
+"set": "instr",
+"name": "conversation_between",
+"text": "The following is a conversation between"
+},
+{
+"idx": 20,
+"set": "ctrl",
+"name": "the",
+"text": "The "
+},
+{
+"idx": 21,
+"set": "ctrl",
+"name": "in",
+"text": "In "
+},
+{
+"idx": 22,
+"set": "ctrl",
+"name": "md_heading",
+"text": "# "
+},
+{
+"idx": 23,
+"set": "ctrl",
+"name": "py_import",
+"text": "import "
+},
+{
+"idx": 24,
+"set": "ctrl",
+"name": "chapter",
+"text": "Chapter 1"
+},
+{
+"idx": 25,
+"set": "ctrl",
+"name": "html",
+"text": "<!DOCTYPE html>"
+},
+{
+"idx": 26,
+"set": "ctrl",
+"name": "a",
+"text": "A "
+},
+{
+"idx": 27,
+"set": "ctrl",
+"name": "it",
+"text": "It "
+},
+{
+"idx": 28,
+"set": "ctrl",
+"name": "this",
+"text": "This "
+},
+{
+"idx": 29,
+"set": "ctrl",
+"name": "i",
+"text": "I "
+},
+{
+"idx": 30,
+"set": "ctrl",
+"name": "we",
+"text": "We "
+},
+{
+"idx": 31,
+"set": "ctrl",
+"name": "digit",
+"text": "1"
+},
+{
+"idx": 32,
+"set": "ctrl",
+"name": "newline",
+"text": "\n"
+},
+{
+"idx": 33,
+"set": "ctrl",
+"name": "quote",
+"text": "\""
+},
+{
+"idx": 34,
+"set": "ctrl",
+"name": "paren",
+"text": "("
+}
+],
+"openers": []
+}
