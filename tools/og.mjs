@@ -145,7 +145,7 @@ function wrapTitleLines(W, baseY, lines, size, family, color) {
 }
 
 function render({ W, H, square }) {
-  const claim = ["how far a checkpoint sits from a pre-anneal base —", "measured from its next-token distribution"];
+  const claim = ["how close a checkpoint is to an ideal base model —", "calibrated on unseen text, nothing memorised, no instruction prior"];
   const titleY = square ? 150 : 104;
   const claimY = titleY + (square ? 76 : 56);
   const stripTop = square ? 420 : 232;

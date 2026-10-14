@@ -1,12 +1,12 @@
 # About
 
-True Base Bench is a public, permanent benchmark that measures how far a language-model checkpoint sits from a pre-anneal pretraining base: a checkpoint from the long constant-learning-rate phase of pretraining, before the anneal, mid-training mixes and any post-training. It is built and maintained by [Anima Labs](https://github.com/anima-research).
+True Base Bench is a public, permanent benchmark that measures how close a language-model checkpoint is to an ideal base model: one whose next-token distribution is an honest density model of text — calibrated on text it has never seen, with nothing memorised beyond its training distribution and no instruction-shaped prior. No reference checkpoint defines that ideal; it is a property of the distribution. Empirically, checkpoints from the long constant-learning-rate phase of pretraining (before the anneal, mid-training mixes and any post-training) sit at it, which is why they set the anchors of the score. It is built and maintained by [Anima Labs](https://github.com/anima-research).
 
 ## What it is for {#purpose}
 
 "Base model" has stopped meaning one thing. Released bases are often annealed on curated, instruction-heavy or synthetic mixes, distilled from a larger model, or both. For research that depends on a model trained toward the data and nothing else (interpretability, studies of the pretraining distribution, simulation, uses of base-model sampling that rely on its full diversity), the label on the checkpoint is not enough.
 
-The bench gives that question a measurement. It does not score capability; it scores distance from a pre-anneal base, and which end of that axis you want depends on what you are using the checkpoint for. A score of 1 means the checkpoint is indistinguishable from a pre-anneal base on the four features measured, nothing more. Whether that is what you want depends on what you are using the model for.
+The bench gives that question a measurement. It does not score capability; it scores distance from that ideal, and which end of the axis you want depends on what you are using the checkpoint for. A score of 1 means the checkpoint is indistinguishable, on the four features measured, from a pre-anneal checkpoint — the empirical stand-in for the ideal — and nothing more.
 
 ## How it works, briefly {#how}
 
