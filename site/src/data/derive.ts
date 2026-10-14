@@ -1,4 +1,5 @@
 /** Derived helpers (DESIGN §6.3, §6.4). Everything is computed from the bundle; no ids are hardcoded. */
+import { ciBounds } from "./ci";
 import { fp, get } from "./bundle";
 import { RAMPS } from "./method";
 import { STAGES, SUB_KEYS, type Bundle, type Model, type Stage, type SubKey } from "./types";
@@ -269,13 +270,8 @@ export function median(xs: number[]): number | null {
 /** bootstrap.json key behind each sub-score's input (docs/vh_boot.py). */
 export const CI_KEY: Record<SubKey, string> = { calib: "calib_gap", spread: "spread", memo: "memo_wiki", prior: "prior_marker" };
 
-/** [lo, hi] of the 95% interval (or frame range) for a ci entry, null when absent or incomplete. */
-export function ciBounds(m: Model | null | undefined, key: string): [number, number] | null {
-  const e = m?.ci?.[key];
-  const iv = e?.ci95 ?? e?.range;
-  if (!iv || typeof iv[0] !== "number" || typeof iv[1] !== "number" || !Number.isFinite(iv[0]) || !Number.isFinite(iv[1])) return null;
-  return [iv[0], iv[1]];
-}
+/** ciBounds lives in ./ci (shared with the findings charts); re-exported here for the older import path. */
+export { ciBounds };
 
 /** The sub-score's input CI mapped through its ramp (calib clipped at 0 first), as a score interval. */
 export function ciScore(m: Model, k: SubKey): [number, number] | null {

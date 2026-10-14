@@ -24,6 +24,22 @@ export const FINDING_DEFS = {
   F6_RATE_SUPPORT: 0.25,
   /** a base counts as ≈ 0 on gap_hiH within this many nats */
   BASE_HIH_ZERO: 0.15,
+  /** F5: a clean checkpoint's few-shot KL must stay below this */
+  CLEAN_KL_MAX: 0.5,
+  /** F7: the median base realised/predicted tail ratio at 10⁻³ must be within this fraction of 1 */
+  F7_TAIL_TOL: 0.25,
+  /** F7: a non-distilled base may be over-confident on random base64 by at most this many nats */
+  F7_NOISE_TOL: 0.1,
+  /** F7: |Spearman ρ| between log exact instruction mass and the sampled marker rate must stay below this */
+  F7_RHO_MAX: 0.5,
+  /** F2: the memo family's anneal must raise the Wikipedia verbatim share by more than this */
+  F2_MEMO_RISE: 0.05,
+  /** F2: the prior family's anneal must raise the marker rate by more than this on every annealed rung */
+  F2_PRIOR_RISE: 0.1,
+  /** F2: the memo family's marker rate moves by less than this across its anneal */
+  F2_MEMO_PRIOR_STILL: 0.05,
+  /** F2: the prior family's Wikipedia verbatim share moves by less than this across its anneal */
+  F2_PRIOR_MEMO_STILL: 0.02,
 };
 
 export interface Check {
@@ -135,10 +151,10 @@ export function f2(b: Bundle): F2 {
     priorAnneal: ann,
     priorRange,
     checks: {
-      memo: { ok: memoRise > 0.05, note: "no family’s anneal raises the Wikipedia verbatim share by more than 5 points" },
-      prior: { ok: priorRise > 0.1, note: `the ${fam ?? "specimen"} anneal does not raise the instruction-marker rate by more than 10 points on every annealed rung` },
+      memo: { ok: memoRise > FINDING_DEFS.F2_MEMO_RISE, note: "no family’s anneal raises the Wikipedia verbatim share by more than 5 points" },
+      prior: { ok: priorRise > FINDING_DEFS.F2_PRIOR_RISE, note: `the ${fam ?? "specimen"} anneal does not raise the instruction-marker rate by more than 10 points on every annealed rung` },
       different: {
-        ok: memoPriorShift < 0.05 && memoShiftPriorFam < 0.02,
+        ok: memoPriorShift < FINDING_DEFS.F2_MEMO_PRIOR_STILL && memoShiftPriorFam < FINDING_DEFS.F2_PRIOR_MEMO_STILL,
         note: "the two anneals no longer move different sub-scores (each moved the other’s feature too)",
       },
     },
@@ -247,7 +263,7 @@ export function f5(b: Bundle): F5 {
     sharpenPairs: sharpen,
     checks: {
       genre: { ok: allDescAboveCensus, note: "some checkpoint’s described-frame top-10 mass is not above the Census top-10 share" },
-      clean: { ok: !!cleanRange && cleanRange[1] < 0.5, note: "a pre-anneal checkpoint or clean base has few-shot KL above 0.5" },
+      clean: { ok: !!cleanRange && cleanRange[1] < FINDING_DEFS.CLEAN_KL_MAX, note: `a pre-anneal checkpoint or clean base has few-shot KL above ${FINDING_DEFS.CLEAN_KL_MAX}` },
       thinned: {
         ok: num(bKL) && !!cleanRange && bKL > 2 * cleanRange[1],
         note: "the specimen post-trained checkpoint’s few-shot KL is no longer more than twice the clean range",
@@ -333,6 +349,10 @@ export interface F7 {
   withOod: Model[];
   /** ratio3 by stage group, when enough models carry it */
   ratio3: { bases: number[]; posts: number[] };
+  /** medians of ratio3 per group (null when the group is empty) */
+  ratio3Median: { bases: number | null; posts: number | null };
+  /** Spearman rank correlation between log10 exact instruction mass and the sampled marker rate; null below F7_MIN pairs */
+  rho: number | null;
   checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check };
 }
 
@@ -365,18 +385,20 @@ export function f7(b: Bundle): F7 {
   })();
   // distilled bases are the documented exception on noise (gemma-2-9b: -3.2 nats on base64); the registry labels them
   const isDistilled = (m: Model) => /distill/i.test(m.label) || /distill/i.test(m.id);
-  const noiseBad = withOod.filter((m) => isBase(m) && !isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -0.1);
-  const noiseDistilled = withOod.filter((m) => isBase(m) && isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -0.1);
+  const noiseBad = withOod.filter((m) => isBase(m) && !isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -FINDING_DEFS.F7_NOISE_TOL);
+  const noiseDistilled = withOod.filter((m) => isBase(m) && isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -FINDING_DEFS.F7_NOISE_TOL);
   return {
     withTail,
     withPrior,
     withOod,
     ratio3: { bases, posts },
+    ratio3Median: { bases: baseMed, posts: postMed },
+    rho,
     checks: {
       tailBases:
         bases.length < F7_MIN
           ? pending("tail reliability of bases", bases.length)
-          : { ok: num(baseMed) && Math.abs(baseMed - 1) < 0.25, note: "the median base checkpoint's realised/predicted tail ratio at 10⁻³ is not within 25% of 1" },
+          : { ok: num(baseMed) && Math.abs(baseMed - 1) < FINDING_DEFS.F7_TAIL_TOL, note: `the median base checkpoint's realised/predicted tail ratio at 10⁻³ is not within ${Math.round(FINDING_DEFS.F7_TAIL_TOL * 100)}% of 1` },
       tailPost:
         bases.length < F7_MIN || posts.length < F7_MIN
           ? pending("tail reliability of post-trained checkpoints", Math.min(bases.length, posts.length))
@@ -384,11 +406,11 @@ export function f7(b: Bundle): F7 {
       // negative result, asserted as such: the sampled marker rate (chat markers anywhere in a free run) and the exact
       // start mass on openers (instruction data in the pretraining mix) are different properties; they do not rank models alike
       priorAgrees:
-        rho === null ? pending("exact prior vs marker rate", pairs.length) : { ok: Math.abs(rho) < 0.5, note: `the exact instruction mass and the sampled marker rate rank models alike after all (Spearman ${rho.toFixed(2)}); the methodology text says they measure different things` },
+        rho === null ? pending("exact prior vs marker rate", pairs.length) : { ok: Math.abs(rho) < FINDING_DEFS.F7_RHO_MAX, note: `the exact instruction mass and the sampled marker rate rank models alike after all (Spearman ${rho.toFixed(2)}); the methodology text says they measure different things` },
       noise:
         withOod.filter(isBase).length < F7_MIN
           ? pending("over-confidence on noise", withOod.filter(isBase).length)
-          : { ok: noiseBad.length === 0, note: `a non-distilled base checkpoint is over-confident by more than 0.1 nats on random base64: ${noiseBad.map((m) => m.label).join(", ")}${noiseDistilled.length ? ` (distilled bases flagged as expected: ${noiseDistilled.map((m) => m.label).join(", ")})` : ""}` },
+          : { ok: noiseBad.length === 0, note: `a non-distilled base checkpoint is over-confident by more than ${FINDING_DEFS.F7_NOISE_TOL} nats on random base64: ${noiseBad.map((m) => m.label).join(", ")}${noiseDistilled.length ? ` (distilled bases flagged as expected: ${noiseDistilled.map((m) => m.label).join(", ")})` : ""}` },
     },
   };
 }

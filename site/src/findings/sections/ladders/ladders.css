@@ -1,0 +1,24 @@
+/* Plate L (Ladders section): the metric switch sits in the plate-label row; the grid reuses .small-mult. */
+.ldr-label-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 10px; }
+.ldr-label-row > .plate-label { margin: 0; }
+.ldr-label-row > .seg { margin-left: auto; }
+.ldr-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; margin: 0 0 8px; }
+.ldr-meta > .axis-once, .ldr-meta > .legend { margin: 0; }
+.ldr-meta > .axis-once { font-size: 11px; line-height: 16px; color: var(--ink-2); }
+.ldr-meta > .legend { font-size: 11px; line-height: 16px; }
+/* end-value labels sit on the cell's raised background, so their halo must match it, not the plate */
+.ldr-grid .cell-plate { --halo: var(--bg-raised); }
+.ldr-unmeasured { font-size: 12px; line-height: 16px; color: var(--ink-2); margin: 8px 0 0; max-width: 72ch; }
+.ldr-unmeasured a { color: var(--link); }
+@media (max-width: 719px) {
+  /* four metrics in a 2 × 2 segmented block instead of a ragged wrap */
+  .ldr-label-row > .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; margin-left: 0; }
+  .ldr-label-row > .seg .btn { margin: 0; border-radius: 0; justify-content: center; padding-left: 6px; padding-right: 6px; }
+  .ldr-label-row > .seg .btn:nth-child(2n) { margin-left: -1px; }
+  .ldr-label-row > .seg .btn:nth-child(n + 3) { margin-top: -1px; }
+  .ldr-label-row > .seg .btn:first-child { border-radius: var(--radius) 0 0 0; }
+  .ldr-label-row > .seg .btn:nth-child(2) { border-radius: 0 var(--radius) 0 0; }
+  .ldr-label-row > .seg .btn:nth-child(3) { border-radius: 0 0 0 var(--radius); }
+  .ldr-label-row > .seg .btn:last-child { border-radius: 0 0 var(--radius) 0; }
+  .ldr-label-row > .seg .btn[aria-pressed="true"] { position: relative; z-index: 1; }
+}

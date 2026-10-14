@@ -54,6 +54,17 @@ export function ChartFrame({
   const show = useCallback((t: Tip) => setTip(t), []);
   const hide = useCallback(() => setTip(null), []);
   const w = maxWidth ? Math.min(width, maxWidth) : width;
+  // The tooltip is measured after it mounts, then kept inside the frame: clamped to the right edge and flipped above
+  // the mark when it would run past the bottom (the plate's .figure clips overflow).
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tipBox, setTipBox] = useState<{ w: number; h: number }>({ w: 220, h: 60 });
+  useLayoutEffect(() => {
+    const el = tipRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.width && (Math.abs(r.width - tipBox.w) > 1 || Math.abs(r.height - tipBox.h) > 1)) setTipBox({ w: r.width, h: r.height });
+  });
+  const frameH = ref.current?.getBoundingClientRect().height ?? 0;
   // Roving tabindex: a chart is one Tab stop (the last-focused mark, else the first); arrow keys move between marks.
   useEffect(() => {
     const marks = Array.from(ref.current?.querySelectorAll<SVGElement>("[data-mark]") ?? []);
@@ -96,9 +107,10 @@ export function ChartFrame({
             className="tooltip"
             role="tooltip"
             style={{
-              left: Math.max(0, Math.min(tip.x + 10, w - 220)),
-              top: tip.y + 12,
+              left: Math.max(0, Math.min(tip.x + 10, w - tipBox.w)),
+              top: frameH && tip.y + 12 + tipBox.h > frameH && tip.y - 12 - tipBox.h >= 0 ? tip.y - 12 - tipBox.h : tip.y + 12,
             }}
+            ref={tipRef}
           >
             {tip.content}
           </div>

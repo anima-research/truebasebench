@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { domainName, ladder, ladderColumns, STAGE_CODE, stageOrder } from "../data/derive";
+import { domainName, ladder, ladderColumns, median, STAGE_CODE, stageOrder } from "../data/derive";
+import { CiWhisker, MedianTick, RangeBand, tipLines, tipTitle } from "./findings/common";
 import { fp, path } from "../data/bundle";
 import type { Bundle, Model, ReliabilityBin, Stage } from "../data/types";
 import { ChartFrame, Mark, TipBody } from "../components/Chart";
@@ -258,6 +259,9 @@ export function domainRows(models: Model[], prefix = "F_CE_", sortBy?: Model) {
 /**
  * Dot strip of one value for every model, one row per stage (Plate M4, F4, F6). The highlighted model is
  * filled and labelled; compare models are outlined; others are filled at reduced weight.
+ * Findings extras (all optional, the model page passes none): `median` ticks per row, a `band`, `ci` whiskers,
+ * `tags` after row labels, `noJoinArrow`, `labelOf` (findings pass rowLabel). Values outside an explicit `domain`
+ * clamp to the axis end and print '← v off axis'.
  */
 export function StageDotStrip({
   bundle,
@@ -272,6 +276,15 @@ export function StageDotStrip({
   joinIds = [],
   domain,
   ticks,
+  median: showMedian = false,
+  band,
+  ci,
+  tags = {},
+  noJoinArrow = false,
+  labelOf,
+  metricName = "",
+  ciKey,
+  showMissing = true,
 }: {
   bundle: Bundle;
   value: (m: Model) => number | null;
@@ -285,12 +298,31 @@ export function StageDotStrip({
   joinIds?: string[];
   domain?: [number, number];
   ticks?: number[];
+  /** a MedianTick per stage row, value printed under it */
+  median?: boolean;
+  band?: { lo: number; hi: number; label: string };
+  ci?: (m: Model) => [number, number] | null;
+  /** tag text printed after a labelled model's label (e.g. 'exception') */
+  tags?: Record<string, string>;
+  /** join polyline without the arrow head */
+  noJoinArrow?: boolean;
+  /** row label text (default: the model's label) */
+  labelOf?: (m: Model) => string;
+  /** metric name for the tooltip's value line ('<name> <value>') */
+  metricName?: string;
+  /** `ci.<key>` entry for the tooltip's interval */
+  ciKey?: string;
+  /** false: the caller lists unmeasured checkpoints itself (a NullPlate sentence, DESIGN §11.6) instead of the in-figure line */
+  showMissing?: boolean;
 }) {
   const ms = bundle.models.filter((m) => isNum(value(m)));
   const ex = domain ?? extent(zero ? [...ms.map(value), 0] : ms.map(value)) ?? [0, 1];
   const pad = domain ? 0 : (ex[1] - ex[0]) * 0.05 || 0.05;
   const dom: [number, number] = [ex[0] - pad, ex[1] + pad];
-  const missing = bundle.models.filter((m) => !isNum(value(m)));
+  const clampV = (v: number) => Math.max(dom[0], Math.min(dom[1], v));
+  const offAxis = (v: number) => v < dom[0] || v > dom[1];
+  const labelText = (m: Model) => (labelOf ? labelOf(m) : m.label);
+  const missing = showMissing ? bundle.models.filter((m) => !isNum(value(m))) : [];
   const stages = stageOrder.filter((s) => ms.some((m) => m.stage === s));
   const aria =
     `${axisTitle}, by stage: ` +
@@ -300,44 +332,48 @@ export function StageDotStrip({
       {(w) => {
         const L = 52;
         const x = linear(dom, [L, w - 14]);
-        const rh = 34;
+        // median rows are taller: the tick's value prints under the row
+        const rh = showMedian ? 44 : 34;
         const LANE = 14;
         const missLines = missing.length ? wrapText(`not measured: ${missing.map((m) => m.label).join(", ")}`, w - 8) : [];
         // Direct labels go into label lanes above their stage row (never over the row's glyphs), packed 1-D:
         // a label takes the lowest lane where it does not overlap another label; a leader joins it to its glyph.
         const labelled = ms.filter((m) => m.id === highlight || labelIds.includes(m.id));
-        const labels = new Map<string, { text: string; x0: number; x1: number; lane: number }>();
+        const labels = new Map<string, { text: string; tag?: string; x0: number; x1: number; lane: number }>();
         const lanesOf = stages.map((s) => {
           const taken: { x0: number; x1: number; lane: number }[] = [];
           let n = 0;
           for (const m of labelled.filter((q) => q.stage === s).sort((a, b) => value(a)! - value(b)!)) {
-            const text = `${m.label} ${fmtNum(value(m), fmtKind)}`;
-            const tw = textWidth(text);
-            const x0 = Math.max(2, Math.min(x(value(m)!) - 4, w - 2 - tw));
+            const text = `${labelText(m)} ${fmtNum(value(m), fmtKind)}`;
+            const tag = tags[m.id];
+            const tw = textWidth(text + (tag ? ` ${tag}` : ""));
+            const x0 = Math.max(2, Math.min(x(clampV(value(m)!)) - 4, w - 2 - tw));
             const x1 = x0 + tw;
             let lane = 0;
             while (taken.some((t) => t.lane === lane && x0 < t.x1 + 6 && t.x0 < x1 + 6)) lane++;
             taken.push({ x0, x1, lane });
-            labels.set(m.id, { text, x0, x1, lane });
+            labels.set(m.id, { text, tag, x0, x1, lane });
             n = Math.max(n, lane + 1);
           }
           return n;
         });
         const rowTop: number[] = [];
         stages.forEach((_, i) => rowTop.push(i ? rowTop[i - 1] + rh + lanesOf[i - 1] * LANE : 0));
-        const rowY = (i: number) => rowTop[i] + lanesOf[i] * LANE + rh / 2;
+        const rowY = (i: number) => rowTop[i] + lanesOf[i] * LANE + (showMedian ? 17 : rh / 2);
         const rowsH = stages.length ? rowTop[stages.length - 1] + rh + lanesOf[stages.length - 1] * LANE : 0;
         const H = rowsH + 44 + Math.max(0, missLines.length - 1) * 14 + (axisTitle ? xTitleExtra(axisTitle, w - 14 - L) : 0);
         const pos = new Map<string, { x: number; y: number }>();
         stages.forEach((s: Stage, i) => {
           const row = ms.filter((m) => m.stage === s);
-          const xs = row.map((m) => x(value(m)!));
+          const xs = row.map((m) => x(clampV(value(m)!)));
           const slots = beeswarm(xs, 8, 3);
           row.forEach((m, j) => pos.set(m.id, { x: xs[j], y: rowY(i) + slots[j] * 6 }));
         });
         const joins = joinIds.map((id) => pos.get(id)).filter(Boolean) as { x: number; y: number }[];
+        const vFmt: Fmt = fmtKind === "gap" ? "signed" : fmtKind;
         return (
           <svg width={w} height={H}>
+            {band && <RangeBand x={x(clampV(band.lo))} y={0} width={x(clampV(band.hi)) - x(clampV(band.lo))} height={rowsH} label={band.label} />}
             {stages.map((s, i) => (
               <g key={s}>
                 <line x1={L} x2={w - 14} y1={rowY(i)} y2={rowY(i)} stroke="var(--rule)" />
@@ -348,9 +384,20 @@ export function StageDotStrip({
               </g>
             ))}
             {zero && dom[0] < 0 && dom[1] > 0 && <line x1={x(0)} x2={x(0)} y1={0} y2={rowsH} stroke="var(--zero)" strokeWidth={1.5} />}
+            {showMedian &&
+              stages.map((s, i) => {
+                const med = median(ms.filter((m) => m.stage === s).map((m) => value(m)!));
+                return med === null ? null : <MedianTick key={"med" + s} x={x(clampV(med))} y={rowY(i)} value={med} fmt={vFmt} />;
+              })}
             {joins.length > 1 && (
-              <polyline points={joins.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="var(--ink)" strokeWidth={1} markerEnd="url(#arrow)" />
+              <polyline points={joins.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="var(--ink)" strokeWidth={1} markerEnd={noJoinArrow ? undefined : "url(#arrow)"} />
             )}
+            {ci &&
+              ms.map((m) => {
+                const b = ci(m);
+                const p = pos.get(m.id)!;
+                return b ? <CiWhisker key={"ci" + m.id} x1={x(clampV(b[0]))} x2={x(clampV(b[1]))} y1={p.y} /> : null;
+              })}
             {ms.map((m) => {
               const p = pos.get(m.id)!;
               const isHl = m.id === highlight;
@@ -363,7 +410,7 @@ export function StageDotStrip({
                   y={p.y}
                   href={`/model/${encodeURIComponent(m.id)}`}
                   label={`${m.label} (${m.family}), ${m.stage}: ${fmt(value(m), fmtKind)}`}
-                  tip={<TipBody title={`${m.family} · ${m.label}`} lines={[fmt(value(m), fmtKind)]} path={valuePath(m)} />}
+                  tip={<TipBody title={tipTitle(m)} lines={tipLines(m, metricName, value(m), fmtKind, ciKey)} path={valuePath(m)} />}
                 >
                   {isHl && <circle cx={p.x} cy={p.y} r={8} fill="var(--hl)" />}
                   <g opacity={fade ? 0.45 : 1}>
@@ -372,16 +419,27 @@ export function StageDotStrip({
                 </Mark>
               );
             })}
+            {ms.map((m) => {
+              const v = value(m)!;
+              if (!offAxis(v)) return null;
+              const p = pos.get(m.id)!;
+              return (
+                <text key={"off" + m.id} x={p.x + (v < dom[0] ? 7 : -7)} y={p.y - 5} textAnchor={v < dom[0] ? "start" : "end"} className="halo" style={{ fontSize: 11 }}>
+                  {v < dom[0] ? "←" : "→"} {fmtNum(v, vFmt)} off axis
+                </text>
+              );
+            })}
             {labelled.map((m) => {
               const p = pos.get(m.id)!;
               const lb = labels.get(m.id)!;
               const i = stages.indexOf(m.stage);
-              const base = rowY(i) - rh / 2 + 2 - lb.lane * LANE; // text baseline of this lane
+              const base = rowTop[i] + lanesOf[i] * LANE + 2 - lb.lane * LANE; // text baseline of this lane
               return (
                 <g key={"lab" + m.id}>
                   <line x1={p.x} x2={p.x} y1={p.y - 5} y2={base + 2} stroke="var(--ink-3)" strokeWidth={1} />
                   <text x={lb.x0} y={base} className="halo" style={{ fill: "var(--ink)" }}>
                     {lb.text}
+                    {lb.tag && <tspan className="tag"> {lb.tag}</tspan>}
                   </text>
                 </g>
               );

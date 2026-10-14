@@ -295,7 +295,7 @@ export default function VerbatimRuns({ bundle, reducedMotion }: ExplainerProps) 
     <div ref={ref}>
       {/* D1 */}
       <svg width={W} height={d1H} viewBox={`0 0 ${W} ${d1H}`}>
-        <text x={0} y={11} className="xp-panel">
+        <text x={0} y={11} className="panel-label">
           D1 · The rule
         </text>
         <Tag x={W} y={11} anchor="end">

@@ -10,7 +10,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vh_score as base  # corpus helpers + log
 
 
-def collect(tmp, prefix):
+def collect(tmp, prefix, expected=None, wait_s=120):
+    """Load the recorder's files for one batch. The engine core writes a request's file when it finalizes the request,
+    which can trail generate() by seconds, so when the expected ids are known we wait for all of them (or wait_s)."""
+    if expected:
+        for _ in range(wait_s):
+            if all(os.path.exists(os.path.join(tmp, v + ".npz")) for v in expected):
+                break
+            time.sleep(1)
+        else:
+            missing = [v for v in expected if not os.path.exists(os.path.join(tmp, v + ".npz"))]
+            base.log(f"WARNING: {len(missing)} recorder files still missing after {wait_s}s (prefix {prefix}): {missing[:5]}")
     out = {}
     for f in glob.glob(os.path.join(tmp, f"{prefix}*.npz")):
         out[os.path.basename(f)[:-4]] = dict(np.load(f))
@@ -32,12 +42,7 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
     outs = llm.generate(prompts, params, use_tqdm=False)
     base.log(f"{tag}: {len(prompts)} docs replayed in {time.time()-t0:.0f}s")
     # the recorder writes its file when the engine core finalizes a request, which can trail generate() by seconds
-    expected = {f"{tag}_{m['doc']:04d}" for m in meta}
-    for _ in range(120):
-        if all(os.path.exists(os.path.join(tmp, v + ".npz")) for v in expected):
-            break
-        time.sleep(1)
-    rec = collect(tmp, tag + "_")
+    rec = collect(tmp, tag + "_", expected={f"{tag}_{m['doc']:04d}" for m in meta})
     cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
     mism = 0
     for m, o in zip(meta, outs):
@@ -89,7 +94,7 @@ def names_probe_vllm(llm, tok, out_dir, names_path, args, tmp):
                     params.append(SamplingParams(max_tokens=len(f), temperature=1.0, top_p=1.0, ignore_eos=True,
                                                  extra_args={"vh_id": f"nm_{key}_{pname}_{ci:04d}_{vi}", "vh_out": tmp, "force": f}))
             llm.generate(reqs, params, use_tqdm=False)
-            rec = collect(tmp, f"nm_{key}_{pname}_")
+            rec = collect(tmp, f"nm_{key}_{pname}_", expected={p.extra_args["vh_id"] for p in params})
             lp = np.full((len(cands), 2), -np.inf)
             for ci in range(len(cands)):
                 for vi in range(2):
@@ -111,7 +116,7 @@ def names_probe_vllm(llm, tok, out_dir, names_path, args, tmp):
                     ns = base.parse_list("1." + t); gen += ns; pld.append(len(set(ns)) / max(len(ns), 1))
                 sm = base.sample_metrics(gen, ref_by_name, ref_total)
                 sm["within_list_distinct_frac"] = float(np.mean(pld)); sm["sample_text"] = texts[0][:600]
-                recl = collect(tmp, f"nl_{key}_{pname}_")
+                recl = collect(tmp, f"nl_{key}_{pname}_", expected={p.extra_args["vh_id"] for p in sp})
                 Hs = [r["H"] for r in recl.values() if len(r["H"])]
                 sm["mean_step_H"] = float(np.concatenate(Hs).mean()) if Hs else None
             res[key][pname] = {"exact": m, "sampled": sm, "secs": time.time() - t0}
@@ -193,7 +198,7 @@ def main():
             t0 = time.time()
             outs = llm.generate([{"prompt_token_ids": p} for p in prompts], params, use_tqdm=False)
             base.log(f"rollouts[{g}]: {len(prompts)} x {args.rollout_steps} in {time.time()-t0:.0f}s")
-            rec = collect(tmp, f"ro_{g}_")
+            rec = collect(tmp, f"ro_{g}_", expected={f"ro_{g}_{i:03d}" for i in range(len(prompts))})
             B, T = len(prompts), args.rollout_steps
             for k in ["H", "V", "s", "p1"]:
                 res[f"{g}_{k}"] = np.full((B, T), np.nan, np.float16)

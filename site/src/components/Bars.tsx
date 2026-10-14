@@ -64,6 +64,10 @@ export function SvgDefs() {
         <marker id="arrow-2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L8,4 L0,8 z" fill="var(--ink-2)" />
         </marker>
+        {/* head for tagged (exception) arrows drawn in --ink-3 */}
+        <marker id="arrow-3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L8,4 L0,8 z" fill="var(--ink-3)" />
+        </marker>
       </defs>
     </svg>
   );

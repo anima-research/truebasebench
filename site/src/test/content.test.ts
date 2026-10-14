@@ -39,7 +39,7 @@ describe("content slots", () => {
   it("methodology mounts all six explainers", () => {
     expect(slots(md("methodology.md"), "explainer").sort()).toEqual([...EXPLAINER_IDS].sort());
   });
-  it("findings: F1–F6 in order, each with its claim and read-off, and every plate placed", () => {
+  it("findings: F1–F7 in order, each with its claim and read-off, and every plate placed", () => {
     const { sections } = sectionsOf(splitTitle(md("findings.md")).body);
     expect(sections.map((s) => s.id).filter((id) => /^f\d$/.test(id))).toEqual([...FINDING_IDS]);
     for (const f of FINDING_IDS) {

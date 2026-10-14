@@ -406,7 +406,7 @@ export default function CalibrationGap({ bundle, reducedMotion }: ExplainerProps
         </clipPath>
       </defs>
       {/* ---------- C1 ---------- */}
-      <text x={0} y={11} className="xp-panel">
+      <text x={0} y={11} className="panel-label">
         C1 · If the text were the model’s own
       </text>
       <Tag x={narrow ? 0 : W - R} y={narrow ? 25 : 11} anchor={narrow ? "start" : "end"}>
@@ -463,7 +463,7 @@ export default function CalibrationGap({ bundle, reducedMotion }: ExplainerProps
       <XAxis scale={lane} y={c1Axis} ticks={[0, 1, 2, 3, 4, 5, 6, 7, 8]} format={(v) => String(v)} title="surprisal −log p, nats (linear); bar = H, ring = s" titleOffset={30} />
 
       {/* ---------- C2 ---------- */}
-      <text x={0} y={c2Top + 11} className="xp-panel">
+      <text x={0} y={c2Top + 11} className="panel-label">
         C2 · Every checkpoint, on one axis
       </text>
       {curM && (
@@ -516,7 +516,7 @@ export default function CalibrationGap({ bundle, reducedMotion }: ExplainerProps
       <line x1={x(LENS[0])} x2={L - 8} y1={c2TitleBottom} y2={lensTop} stroke="var(--rule-strong)" />
       <line x1={x(LENS[1])} x2={W - R + 8} y1={c2TitleBottom} y2={lensTop} stroke="var(--rule-strong)" />
       <rect x={L - 8} y={lensTop} width={W - L - R + 16} height={lensAxis - lensTop} fill="none" stroke="var(--rule-strong)" />
-      <text x={L - 2} y={lensTop + 14} className="xp-panel">
+      <text x={L - 2} y={lensTop + 14} className="panel-label">
         Lens · {fmtTick(LENS[0], { signed: true })} to {fmtTick(LENS[1], { signed: true })} nats
       </text>
       {band > 0 && showRows && (

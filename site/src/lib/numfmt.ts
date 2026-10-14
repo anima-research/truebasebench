@@ -14,6 +14,7 @@ export type Fmt =
   | "eff" // ≈ integer
   | "num3" // plain 3 decimals
   | "num2"
+  | "mass" // a probability mass: percent at or above 1e-3, else m.m×10⁻ᵉ
   | "raw"; // 5 significant figures
 
 export const MINUS = "−";
@@ -83,9 +84,21 @@ export function fmtNum(x: number | null | undefined, kind: Fmt): string {
       return fmtCount(x);
     case "eff":
       return "≈" + THIN + fmtCount(x);
+    case "mass": {
+      if (x >= 1e-3) return fmtNum(x, "pct");
+      if (x <= 0) return "0";
+      const e = Math.floor(Math.log10(x));
+      return `${(x / Math.pow(10, e)).toFixed(1)}×10${supExp(e)}`;
+    }
     case "raw":
       return minus(sig5(x));
   }
+}
+
+const SUP: Record<string, string> = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+/** Exponent as superscript characters: -3 → ⁻³. */
+export function supExp(e: number): string {
+  return String(e).split("").map((c) => SUP[c] ?? c).join("");
 }
 
 export function unitOf(kind: Fmt): string {

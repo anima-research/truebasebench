@@ -3,18 +3,21 @@
  * these keys (typed), and src/test/content.test.ts checks that every slot in the markdown is provided and that every
  * provided figure is placed somewhere.
  */
-export const FINDING_IDS = ["f1", "f2", "f3", "f4", "f5", "f6"] as const;
+export const FINDING_IDS = ["f1", "f2", "f3", "f4", "f5", "f6", "f7"] as const;
 export const FINDINGS_PLATES = [
   "ladder-calib",
-  "ladder-calib-families",
+  "anneal-moves",
   "anneal-profiles",
-  "subscore-matrix",
-  "gap-prior",
+  "gap-strip",
   "collapse-strip",
   "surname-kl",
+  "surname-top10",
   "ladder-surname-kl",
   "tail-arrows",
-  "tail-strip",
+  "tail-hiH-arrows",
+  "tail-reliability",
+  "prior-exact",
+  "ood-noise",
   "ladders",
 ] as const;
 export type FindingsPlate = (typeof FINDINGS_PLATES)[number];

@@ -36,7 +36,8 @@ svg text.halo, svg .halo text { paint-order: stroke; stroke: var(--halo, var(--b
   .reading {
     display: grid;
     column-gap: 0;
-    grid-template-columns: 176px 40px 640px 48px 280px;
+    /* main and margin tracks shrink below 1248px so the reading grid never exceeds the container (1136px at 1200) */
+    grid-template-columns: 176px 40px minmax(0, 640px) 48px minmax(0, 280px);
   }
   .reading > .rail { display: block; grid-column: 1; grid-row: 1 / span 999; }
   .reading > .main-col { grid-column: 3; min-width: 0; }
@@ -57,7 +58,7 @@ svg text.halo, svg .halo text { paint-order: stroke; stroke: var(--halo, var(--b
 
 .with-margin { display: block; }
 @media (min-width: 1100px) {
-  .with-margin { display: grid; grid-template-columns: 640px 48px 280px; }
+  .with-margin { display: grid; grid-template-columns: minmax(0, 640px) 48px minmax(0, 280px); }
   .with-margin > .wm-main { grid-column: 1; min-width: 0; }
   .with-margin > .wm-margin { grid-column: 3; }
 }
@@ -77,7 +78,8 @@ h3 { font-size: 17px; line-height: 24px; font-weight: 600; }
 .prose { font-family: var(--f-serif); font-size: 17px; line-height: 27px; max-width: 64ch; }
 .wide > .prose, .finding > .prose { max-width: none; }
 .wide > .prose > :not(.explainer-slot):not([data-explainer]):not(.tbl-scroll):not(pre),
-.finding > .prose > :not(.plate):not(.grid-2):not(.tbl-scroll):not(pre):not(.claim):not(.data-note) { max-width: 64ch; }
+.finding > .prose > :not(.plate):not(.grid-2):not(.tbl-scroll):not(pre):not(.fd-head):not(.data-note):not(.with-margin) { max-width: 64ch; }
+.finding > .prose > .with-margin > .wm-main > p { max-width: 64ch; }
 .prose p { margin: 0 0 16px; }
 .prose .num, .lede .num { font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 719px) { .prose { font-size: 16px; line-height: 26px; } h1 { font-size: 28px; line-height: 34px; } h2 { font-size: 22px; line-height: 28px; } }
@@ -108,7 +110,7 @@ h3 { font-size: 17px; line-height: 24px; font-weight: 600; }
 .topbar .spacer { flex: 1; }
 .stamp { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
 .btn.menu-btn { display: none; }
-@media (max-width: 1099px) { .topbar .stamp { display: none; } }
+@media (max-width: 1099px) { .topbar .stamp { display: none; } .byline { display: none; } .topbar .container { flex-wrap: wrap; gap: 8px 12px; } }
 @media (max-width: 719px) {
   .topbar .container { flex-wrap: wrap; gap: 8px 12px; }
   .btn.menu-btn { display: inline-flex; margin-left: auto; }
@@ -157,6 +159,8 @@ details[open] > summary .chev { transform: rotate(90deg); }
 details.data .tbl-wrap { max-height: 360px; overflow: auto; margin-top: 6px; background: var(--bg-raised); }
 .data-note { border-top: 1px solid var(--rule-strong); border-bottom: 1px solid var(--rule-strong); padding: 6px 0; margin: 8px 0; font-size: 13px; color: var(--ink-2); }
 .data-note strong { color: var(--ink); }
+.data-note.pending { border-top-style: dashed; border-bottom-style: dashed; color: var(--ink-3); }
+.data-note.pending strong { color: var(--ink-2); }
 .nullplate {
   padding: 20px; margin: 16px 0; color: var(--ink-2); font-size: 14px; background-color: var(--bg-plate);
   background-image: repeating-linear-gradient(45deg, var(--rule-strong) 0 1px, transparent 1px 8px);
@@ -166,6 +170,19 @@ details.data .tbl-wrap { max-height: 360px; overflow: auto; margin-top: 6px; bac
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); margin: 0 0 8px; padding: 0; list-style: none; }
 .legend li { display: inline-flex; align-items: center; gap: 6px; }
 .legend .code { font-weight: 600; color: var(--ink); }
+/* In-figure sub-panel and lens labels (explainers and findings alike), in-figure tags, band labels. */
+svg text.panel-label { font-family: var(--f-sans); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; fill: var(--ink-3); }
+svg text.tag, svg tspan.tag { font-size: 11px; font-style: italic; fill: var(--ink-3); letter-spacing: 0.02em; }
+/* HTML text has no paint-order, so the halo is a stacked text-shadow in the plate colour (a text-stroke would erode the glyphs). */
+svg .band-label {
+  font-family: var(--f-sans); font-size: 11px; line-height: 14px; color: var(--ink-3); white-space: nowrap;
+  text-shadow: 0 0 2px var(--halo, var(--bg-plate)), 0 0 2px var(--halo, var(--bg-plate)), 0 0 3px var(--halo, var(--bg-plate)), 1px 0 1px var(--halo, var(--bg-plate)), -1px 0 1px var(--halo, var(--bg-plate)), 0 1px 1px var(--halo, var(--bg-plate)), 0 -1px 1px var(--halo, var(--bg-plate));
+}
+svg .band-label .num { text-decoration-color: var(--ink-3); }
+/* "Numbers in this plate / finding" lists (explainer shell and findings shell share the markup). */
+.xp-numbers { list-style: none; margin: 6px 0 0; padding: 8px; background: var(--bg-raised); font-size: 12px; }
+.xp-numbers li { padding: 2px 0; overflow-wrap: anywhere; }
+.xp-path { font-size: 11px; margin-left: 6px; }
 
 /* ---------- tables ---------- */
 table.tbl { border-collapse: collapse; width: 100%; font-size: 13px; line-height: 18px; }

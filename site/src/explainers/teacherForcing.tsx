@@ -99,7 +99,7 @@ function Lane({
   const sMax = Math.max(...spark, 1e-9);
   return (
     <g>
-      <text x={0} y={11} className="xp-panel">
+      <text x={0} y={11} className="panel-label">
         {title}
       </text>
       <text x={0} y={25} className="it">

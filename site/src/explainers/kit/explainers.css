@@ -30,7 +30,6 @@
 .xp-figure svg text.b { font-weight: 600; }
 .xp-figure svg text.it { font-style: italic; }
 .xp-figure svg .xp-tag { font-size: 11px; font-style: italic; fill: var(--ink-3); letter-spacing: 0.02em; }
-.xp-figure svg .xp-panel { font-family: var(--f-sans); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; fill: var(--ink-3); }
 
 .xp-transport { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .xp-tbtn { min-width: 32px; justify-content: center; padding: 4px 8px; }
@@ -62,9 +61,7 @@
 .xp-slot select { width: 100%; min-width: 0; }
 .xp-picker-note { margin: 2px 0 0; }
 
-.xp-numbers { list-style: none; margin: 6px 0 0; padding: 8px; background: var(--bg-raised); font-size: 12px; }
-.xp-numbers li { padding: 2px 0; overflow-wrap: anywhere; }
-.xp-path { font-size: 11px; margin-left: 6px; }
+/* .xp-numbers / .xp-path: in base.css (shared with the findings numbers list) */
 
 /* figure sub-blocks rendered in HTML */
 .xp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }

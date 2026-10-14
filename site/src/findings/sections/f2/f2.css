@@ -1,0 +1,13 @@
+/* F2 plates: the 2 × 2 anneal grid (one column under 560px) and the once-printed axis line of Plate F2b. */
+/* A ChartFrame never measures below 240px (useWidth's floor) and the figure scales an over-wide SVG down, clipping its
+   bottom; so a cell (10px side padding) is never narrower than 260px: two columns from 532px up, one column below,
+   which also covers the 1100–1247px band where the margin layout narrows the main track. */
+.f2-moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.f2-profiles .grid-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.f2-cell { --halo: var(--bg-raised); padding: 6px 8px 4px; }
+.f2-cell svg text.panel-label { fill: var(--ink-2); }
+.f2-axis-once { font-family: var(--f-sans); font-size: 11px; line-height: 16px; color: var(--ink-2); margin: 0 0 6px; }
+.f2-profiles .cell-plate { --halo: var(--bg-raised); }
+.f2-profiles .cell-plate h3 { margin-bottom: 2px; }
+.f2-comb { display: inline-flex; align-items: center; gap: 6px; }
+.f2-comb svg { flex: none; }

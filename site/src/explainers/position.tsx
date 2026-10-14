@@ -184,7 +184,7 @@ function Figure({ W, A, B, prog, ymax, ghost }: { W: number; A: Spec; B: Spec | 
       </text>
 
       {/* surprisal lane */}
-      <text x={L} y={laneY - 112} className="xp-panel">
+      <text x={L} y={laneY - 112} className="panel-label">
         Surprisal lane
       </text>
       <line x1={L} x2={L + pw} y1={laneY} y2={laneY} stroke="var(--ink-2)" strokeWidth={1} />

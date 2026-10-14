@@ -1,0 +1,2 @@
+/* F1-only layout: the detail block is a `.with-margin` grid under `.prose` (base.css exempts it from the 64ch cap). */
+.f1-detail .wm-main > p { max-width: 64ch; }
