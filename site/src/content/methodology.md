@@ -41,12 +41,12 @@ Each checkpoint goes through the same scripts (`vh_score.py` with HF transformer
 
 The analysis scripts then turn the per-position arrays into a fingerprint: `vh_analyze.py` (fingerprint features, including the calibration and prior features), `vh_memo.py` (verbatim runs), `vh_selfboot.py` (top-1 reliability and own-sample lexical statistics), `vh_tail.py` (realised tail statistics), `vh_names_table.py` (surname and rare-genre tables) and `vh_truebase.py` (sub-scores and the overall score). [Measure your model](/measure) gives the commands.
 
-## One position: entropy, varentropy, surprisal {#position}
+## One position: entropy and surprisal {#position}
 
 At one position the model assigns a probability p(x) to every token x in its vocabulary. Three numbers summarise it, all in nats:
 
 - **Entropy** H = −Σₓ p(x) log p(x): the surprise the model expects.
-- **Varentropy** V = Σₓ p(x) (−log p(x) − H)²: the variance of the surprise under the model's own distribution. A distribution with one strong candidate and a long flat tail has high V; a uniform choice among a few tokens has V = 0.
+- **Varentropy** V = Σₓ p(x) (−log p(x) − H)², the variance of the surprise, is stored too. It enters no sub-score and no finding; see [Limits](#limits) for what it showed.
 - **Surprisal** s = −log p(y) of the token y that actually came next: the surprise the model got.
 
 Alongside these the scripts store p1, the probability of the top-1 token, and the rank of y (0 when the model's top choice was right).
@@ -158,6 +158,8 @@ What the intervals cover: sampling of documents from the fixed corpus, for one m
 `vh_selfboot.py` takes the first 700 words of each bare-`<bos>` sample (samples with fewer than 60% of that budget are dropped) and computes type-token ratio, hapax share, distinct 4-gram share, Zipf slope and gzip ratio, against the same statistics on Pile documents at the same budget (the reference values ship in `reference.pile_lexical`). Free-running samples at T = 1 can fall into single-glyph or short-loop attractors; these statistics show it. They are shown and not scored, because the collapse is not diagnostic: pre-anneal and annealed checkpoints both do it (see [Findings](/findings#f4)).
 
 ## Limits {#limits}
+
+- **Varentropy is recorded but not scored.** The project began as a varentropy sweep, and V is kept in every per-position array and in the fingerprint (`F_V/H|H>1`, `Vmed|H2-3`, `roll_V_bos`, `W1(TF_V, roll_V)`, all on the model page). On teacher-forced text it does not order the stages: V/H at H > 1 has stage medians of about 1.9 (pre-anneal), 2.0 (anneal), 1.7 (base) and 1.8 (post-trained). On a model's own bare-BOS samples it does fall through the ladder (medians about 5.2 → 3.1 → 3.0 → 1.6, rank correlation 0.73 with the calibration gap), but it varies across families as much as across stages (two released bases sit at 0.7 and 5.5), so without per-family normalisation it says nothing the gap does not. It stays reported in case a later bundle changes that.
 
 - The anchors come from two families. A recipe that changes the distribution in a way none of the four features sees will score as a true base.
 - `prior` rests on 32 samples and a marker list; a model that has seen instruction data but never emits its markers unprompted is not caught by it. The [exact prior mass](#prior-exact) is the planned replacement; until it has been measured on every checkpoint it is shown, not scored.

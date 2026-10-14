@@ -1,5 +1,5 @@
 /**
- * Explainer (a) One position: entropy, varentropy, surprisal (DESIGN §8 a).
+ * Explainer (a) One position: entropy and surprisal (DESIGN §8 a).
  * The distribution SHAPE is constructed (p_k ∝ r^k over 64 candidates, entropy = the model's F_H); H, s and the gap
  * are the model's bundle values. If bundle.explainers.position exists, the measured top-16 replaces the construction.
  */
@@ -23,7 +23,7 @@ import { fk, full, N, pn, resolveIds, tx } from "./kit/num";
 const N_CAND = 64;
 const N_BARS = 16;
 const LANE_MAX = 8;
-const DURS = [900, 1300, 900, 700, 800, 700, 1500];
+const DURS = [900, 1300, 900, 800, 700, 1500];
 
 interface Spec {
   model: Model;
@@ -81,7 +81,6 @@ interface Prog {
   bars: number;
   drop: number;
   fulcrum: number;
-  band: number;
   s: number;
   gap: number;
   /** 0 = A, 1 = B */
@@ -102,7 +101,6 @@ function Figure({ W, A, B, prog, ymax, ghost }: { W: number; A: Spec; B: Spec | 
   const axisY = laneY + 20;
   const H = B ? lerp(A.H, B.H, mix) : A.H;
   const s = B ? lerp(A.s, B.s, mix) : A.s;
-  const sdV = Math.sqrt(B ? lerp(A.V, B.V, mix) : A.V);
   const nP = Math.max(A.p.length, B?.p.length ?? 0);
   const pAt = (k: number) => (B ? lerp(A.p[k] ?? 0, B.p[k] ?? 0, mix) : A.p[k] ?? 0);
   const barsA = barsOf(A);
@@ -188,17 +186,6 @@ function Figure({ W, A, B, prog, ymax, ghost }: { W: number; A: Spec; B: Spec | 
         Surprisal lane
       </text>
       <line x1={L} x2={L + pw} y1={laneY} y2={laneY} stroke="var(--ink-2)" strokeWidth={1} />
-      {/* ±√V band (constructed, not printed) */}
-      {prog.band > 0 && sdV > 0 && (
-        <g opacity={prog.band}>
-          <line x1={x(Math.max(0, H - sdV))} x2={x(Math.min(LANE_MAX, H + sdV))} y1={laneY - 40} y2={laneY - 40} stroke="var(--ink-2)" />
-          <line x1={x(Math.max(0, H - sdV))} x2={x(Math.max(0, H - sdV))} y1={laneY - 44} y2={laneY - 36} stroke="var(--ink-2)" />
-          <line x1={x(Math.min(LANE_MAX, H + sdV))} x2={x(Math.min(LANE_MAX, H + sdV))} y1={laneY - 44} y2={laneY - 36} stroke="var(--ink-2)" />
-          <text x={x(Math.min(LANE_MAX, H + sdV)) + 4} y={laneY - 40} dy="0.32em" className="it">
-            ±√V {cur.measured ? "" : "(constructed)"}
-          </text>
-        </g>
-      )}
       {dots.map((d) => (
         <circle key={d.key} cx={d.cx} cy={d.cy} r={d.r} fill="var(--bar)" fillOpacity={0.78} stroke="var(--bg-plate)" strokeWidth={0.5} />
       ))}
@@ -290,13 +277,12 @@ export default function Position({ bundle, reducedMotion }: ExplainerProps) {
     bars: at(0),
     drop: at(1),
     fulcrum: at(2),
-    band: at(3),
-    s: at(4),
-    gap: at(5),
-    mix: easeInOut(seg(at(6), 0.1, 0.9)),
+    s: at(3),
+    gap: at(4),
+    mix: easeInOut(seg(at(5), 0.1, 0.9)),
   };
-  const reducedFinal = st.reduced && st.step === 6;
-  const full1: Prog = { bars: 1, drop: 1, fulcrum: 1, band: 1, s: 1, gap: 1, mix: 0 };
+  const reducedFinal = st.reduced && st.step === 5;
+  const full1: Prog = { bars: 1, drop: 1, fulcrum: 1, s: 1, gap: 1, mix: 0 };
 
   const constructed = !sa.measured || !sb.measured;
   const steps: StepSpec[] = [
@@ -335,17 +321,6 @@ export default function Position({ bundle, reducedMotion }: ExplainerProps) {
         </>
       ),
       summary: `Entropy is the balance point of the dots: H = ${tx(A, fk("F_H"), "nats")}.`,
-    },
-    {
-      title: "Varentropy is how widely the weight is spread",
-      body: (
-        <>
-          Varentropy V is the variance of surprise around H. The bracket shows ±√V of the drawn distribution and is not a measurement. Measured on Pile
-          text, the median varentropy at positions with 2 ≤ H &lt; 3 nats is <N m={A} k={fk("Vmed|H2-3")} f="num3" />; on post-cutoff text, V/H at
-          H &gt; 1 is <N m={A} k={fk("F_V/H|H>1")} f="num3" />.
-        </>
-      ),
-      summary: `Varentropy is the spread of surprise around H; measured on Pile text, median varentropy at 2 ≤ H < 3 is ${tx(A, fk("Vmed|H2-3"), "num3")}.`,
     },
     {
       title: "Surprisal is where the real token landed",
@@ -420,14 +395,12 @@ export default function Position({ bundle, reducedMotion }: ExplainerProps) {
     ["F_H", "entropy H, post-cutoff mean", "nats"],
     ["F_CE", "surprisal s (cross-entropy)", "nats"],
     ["F_calib_gap", "gap H − s", "gap"],
-    ["Vmed|H2-3", "median V at 2 ≤ H < 3, Pile text", "num3"],
-    ["F_V/H|H>1", "V/H at H > 1, post-cutoff text", "num3"],
   ];
   return (
     <ExplainerShell
       id="position"
-      label="Plate A · One position: entropy, varentropy, surprisal"
-      standfirst="At a single position, three numbers summarise the model’s guess and what actually came next."
+      label="Plate A · One position: entropy and surprisal"
+      standfirst="At a single position, two numbers summarise the model’s guess and what actually came next, and their difference is the gap."
       st={st}
       steps={steps}
       picker={
@@ -449,16 +422,14 @@ export default function Position({ bundle, reducedMotion }: ExplainerProps) {
           <>
             Distribution shape constructed: p<sub>k</sub> ∝ r<sup>k</sup> over {N_CAND} candidates (top {N_BARS} drawn, the remaining{" "}
             {N_CAND - N_BARS} pooled), with r found by bisection so that its entropy equals the model’s F_H. The real-token marker sits at s = F_CE.
-            Because F_calib_gap = F_H − F_CE, the bracket prints the bundle’s gap. ±√V belongs to the construction and is not printed; the measured
-            varentropy figures are in the step text.
+            Because F_calib_gap = F_H − F_CE, the bracket prints the bundle’s gap.
           </>
         ) : (
-          <>Measured at one post-cutoff position: the real top-{N_BARS} probabilities, H, V and s of each model (bundle.explainers.position).</>
+          <>Measured at one post-cutoff position: the real top-{N_BARS} probabilities, H and s of each model (bundle.explainers.position).</>
         )
       }
       sources={[
         `models[*].fingerprint.F_H, F_CE, F_calib_gap`,
-        `models[*].fingerprint["Vmed|H2-3"], ["F_V/H|H>1"]`,
         ...(sa.measured || sb.measured ? ["explainers.position"] : []),
       ]}
       data={{
@@ -467,7 +438,6 @@ export default function Position({ bundle, reducedMotion }: ExplainerProps) {
         rows: [
           ...keys.map(([k, name, f]) => [name, tx(A, fk(k), f), tx(B, fk(k), f)]),
           ["constructed p(t1)", fmtNum(sa.p[0], "num3"), fmtNum(sb.p[0], "num3")],
-          ["constructed √V (not a measurement)", fmtNum(Math.sqrt(sa.V), "num3"), fmtNum(Math.sqrt(sb.V), "num3")],
         ],
       }}
       numbers={[
