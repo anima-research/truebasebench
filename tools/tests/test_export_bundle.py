@@ -73,8 +73,9 @@ class ExportRoundTrip(unittest.TestCase):
                              (m["family"], m["stage"], m["label"]), m["id"])
 
     def test_scores_recompute_from_fingerprint(self):
+        sv = int(self.v1["reference"].get("score_version", 0))
         for m in self.v1["models"]:
-            r = eb.score_fingerprint(m["fingerprint"])
+            r = eb.score_fingerprint(m["fingerprint"], sv)
             self.assertAlmostEqual(r["overall"], m["score"], places=12, msg=m["id"])
             for k in eb.SUBSCORES:
                 self.assertTrue(eb.close(r[k]["score"], m["subscores"][k]["score"]), (m["id"], k))

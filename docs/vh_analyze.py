@@ -305,7 +305,10 @@ def fingerprint_table(results_dir, names, corpus_path=None, out=None):
             for k in ["H", "V", "s", "p1"]:
                 fresh[k] = fresh[k].astype(np.float32)
             fresh["docs"] = json.load(open(os.path.join(d, "tf_fresh_docs.json")))
-        rows[n] = fingerprint(load_tf(d), load_ro(d), corpus, extra, load_rollout_texts(d), fresh)
+        try:
+            rows[n] = fingerprint(load_tf(d), load_ro(d), corpus, extra, load_rollout_texts(d), fresh)
+        except Exception as e:  # one broken or half-finished result dir must not sink the whole table
+            print(f"SKIP {n}: {type(e).__name__}: {e}", file=sys.stderr)
     keys = sorted({k for r in rows.values() for k in r})
     w = max(len(n) for n in rows) + 1
     print("feature".ljust(22) + "".join(n[-18:].rjust(19) for n in rows))

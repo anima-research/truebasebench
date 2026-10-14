@@ -7,7 +7,7 @@ that were set from the Trinity ladder; refine the anchors once the OLMo-2 ladder
   spread  : mean |per-domain gap| on fresh text.                                        0.015 -> 1, 0.10 -> 0
   memo    : Wikipedia verbatim-run fraction (150-doc set; falls back to the 24-doc set). 0.02 -> 1, 0.12 -> 0
   prior   : instruction/chat-marker rate in 32 bare-BOS T=1 samples.                     0 -> 1, 0.40 -> 0
-overall = mean of available sub-scores (printed with which were available).
+overall (score v1) = mean of the available calib, spread and prior sub-scores; memo is computed as a validation probe and not averaged in.
 """
 import json, sys, os, math
 
@@ -34,6 +34,10 @@ def pick(f, *keys):
     return None, None
 
 
+SCORE_VERSION = 1
+SCORED = ("calib", "spread", "prior")  # v1: memo is a validation probe, not a term of the score (v0 averaged all four)
+
+
 def score(f):
     out = {}
     calib, src = pick(f, "F_calib_gap", "calib_gap")
@@ -44,7 +48,7 @@ def score(f):
     out["memo"] = (ramp(memo, *RAMPS["memo"]), memo, src)
     prior, src = pick(f, "roll_instr_marker_rate")
     out["prior"] = (ramp(prior, *RAMPS["prior"]), prior, src)
-    avail = [v[0] for v in out.values() if v[0] is not None]
+    avail = [out[k][0] for k in SCORED if out[k][0] is not None]
     out["overall"] = sum(avail) / len(avail) if avail else None
     out["n_avail"] = len(avail)
     return out
@@ -64,7 +68,9 @@ def main():
         srcs = ",".join(("F" if (r[k][2] or "").startswith("F_") else "X" if (r[k][2] or "").startswith("X_") else "p") for k in ["calib", "spread", "memo"])
         print(f"{n[:34]:34} {r['overall'] if r['overall'] is not None else float('nan'):7.2f} | {fmt('calib')} | {fmt('spread')} | {fmt('memo', 10)} | {fmt('prior')}  {srcs}")
     out = os.path.join(os.path.dirname(path), "truebase_scores.json")
-    json.dump({n: {k: (v if k in ("overall", "n_avail") else {"score": v[0], "value": v[1], "source": v[2]}) for k, v in r.items()} for n, r in rows.items()}, open(out, "w"), indent=1)
+    doc = {n: {k: (v if k in ("overall", "n_avail") else {"score": v[0], "value": v[1], "source": v[2], "scored": k in SCORED}) for k, v in r.items()} for n, r in rows.items()}
+    doc["_score_version"] = SCORE_VERSION; doc["_scored"] = list(SCORED)
+    json.dump(doc, open(out, "w"), indent=1)
     print("wrote", out, "(src column: F=fresh corpus, X=150-doc wiki set, p=Pile main corpus)")
 
 

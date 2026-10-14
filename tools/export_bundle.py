@@ -58,6 +58,8 @@ SCHEMA_VERSION = 1
 MANIFEST_VERSION = 1
 STAGES = ("pre-anneal", "anneal", "base", "post-trained")
 SUBSCORES = ("calib", "spread", "memo", "prior")
+# score v0 averaged all four; v1 (2026-10-14) averages calib, spread and prior and keeps memo as a validation probe
+SCORED_BY_VERSION: Dict[int, Tuple[str, ...]] = {0: SUBSCORES, 1: ("calib", "spread", "prior")}
 BUNDLE_RE = re.compile(r"^bench_v(\d+)\.json$")
 
 # Ramps (docs/SPEC.md, docs/vh_truebase.py): sub-score -> (value scoring 1, value scoring 0).
@@ -128,15 +130,18 @@ def pick(f: Dict[str, Any], keys: Tuple[str, ...]) -> Tuple[Optional[float], Opt
     return None, None
 
 
-def score_fingerprint(f: Dict[str, Any]) -> Dict[str, Any]:
+def score_fingerprint(f: Dict[str, Any], score_version: int = 1) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
+    scored = SCORED_BY_VERSION[score_version]
     for name in SUBSCORES:
         value, src = pick(f, SOURCES[name])
         x = value
         if name == "calib" and value is not None:
             x = min(value, 0.0)  # a positive gap (under-confident) is not penalised
         out[name] = {"score": ramp(x, *RAMPS[name]), "value": value, "source": src}
-    avail = [out[k]["score"] for k in SUBSCORES if out[k]["score"] is not None]
+        if score_version >= 1:
+            out[name]["scored"] = name in scored
+    avail = [out[k]["score"] for k in scored if out[k]["score"] is not None]
     out["overall"] = sum(avail) / len(avail) if avail else None
     out["n_avail"] = len(avail)
     return out
@@ -234,6 +239,10 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
         raise ExportError(f"{fp_path} not found (run docs/vh_analyze.py RESULTS --all first)")
     fps: Dict[str, Dict[str, Any]] = load_json(fp_path)
     scores = load_optional(adir, "truebase_scores.json", warnings) or {}
+    # score version: v1 marks itself in truebase_scores.json ("_score_version"); an unmarked file or no file is v0
+    score_version = int(scores.get("_score_version", 0)) if scores else 0
+    scores = {k: v for k, v in scores.items() if not k.startswith("_")}
+    scored = SCORED_BY_VERSION[score_version]
     names = load_optional(adir, "names_summary.json", warnings) or {}
     weird = load_optional(adir, "weird_summary.json", warnings) or {}
     selfboot_raw = load_optional(adir, "selfboot.json", warnings) or {}
@@ -266,7 +275,7 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             continue
         meta = reg_models[mid]
         fp = fps[mid]
-        recomputed = score_fingerprint(fp)
+        recomputed = score_fingerprint(fp, score_version)
         given = scores.get(mid)
         if given is None:
             if scores:
@@ -276,6 +285,8 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             sc = given
             for k in SUBSCORES:
                 g, r = given.get(k) or {}, recomputed[k]
+                if score_version >= 1:
+                    g = dict(g); g.setdefault("scored", k in scored); sc[k] = g
                 if not close(g.get("score"), r["score"]) or not close(g.get("value"), r["value"]):
                     raise ExportError(f"{mid}: truebase_scores.json {k} = {g} disagrees with recomputation {r}; "
                                       f"re-run docs/vh_truebase.py on this fingerprints.json")
@@ -351,6 +362,9 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             warnings.append(f"surnames.H_r differs across models ({min(h_ref)} .. {max(h_ref)}); using the median")
         reference["census_entropy_top2000"] = sorted(h_ref)[len(h_ref) // 2]
 
+    if score_version >= 1:  # v0 bundles stay byte-identical (their reference block predates these keys)
+        reference["score_version"] = score_version
+        reference["scored_subscores"] = list(scored)
     bundle = clean({
         "schema_version": SCHEMA_VERSION,
         "generated": generated,
