@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useBundle, useLoaded } from "../data/BundleContext";
 import { byId, fp, get, path } from "../data/bundle";
-import { defaultCompare, fmtParams, nAvailable, params, preAnnealBand, ranked } from "../data/derive";
+import { CI_KEY, ciBounds, defaultCompare, fmtParams, nAvailable, params, preAnnealBand, ranked } from "../data/derive";
+import { fmtMass, oodRows, PriorMassBars, TAIL_KS, tailLabel, TailMassRows, TailReliabilityDiagram, withCI } from "../charts/TailPriorCharts";
 import { describe, GROUPS } from "../data/glossary";
 import { SUB_META } from "../data/method";
 import { meanOfStored } from "../data/scoring";
@@ -28,11 +29,15 @@ const SECTIONS = [
   { id: "ramps", n: 1, title: "Sub-score ramps", explainer: "score" },
   { id: "calibration", n: 2, title: "Calibration on unseen text", explainer: "calibration-gap" },
   { id: "tail", n: 3, title: "Tail", explainer: "tail" },
-  { id: "surnames", n: 4, title: "Surnames", explainer: "surnames" },
-  { id: "genres", n: 5, title: "Rare genres", explainer: "verbatim-runs" },
-  { id: "samples", n: 6, title: "Own samples", explainer: "lexical" },
-  { id: "fingerprint", n: 7, title: "Full fingerprint", explainer: "pipeline" },
+  { id: "tail-mass", n: 4, title: "Tail reliability", explainer: "tail-mass" },
+  { id: "prior-mass", n: 5, title: "Prior mass on chat openers", explainer: "prior-exact" },
+  { id: "ood", n: 6, title: "Out-of-distribution genres", explainer: "ood" },
+  { id: "surnames", n: 7, title: "Surnames", explainer: "surnames" },
+  { id: "genres", n: 8, title: "Rare genres", explainer: "verbatim-runs" },
+  { id: "samples", n: 9, title: "Own samples", explainer: "lexical" },
+  { id: "fingerprint", n: 10, title: "Full fingerprint", explainer: "pipeline" },
 ];
+const SEC = Object.fromEntries(SECTIONS.map((x) => [x.id, x])) as Record<string, (typeof SECTIONS)[number]>;
 const SECTION_IDS = SECTIONS.map((s) => s.id);
 /** Methodology h2 text by anchor id, read from the page's own markdown, so the link names what the reader will find. */
 const METHOD_HEADINGS: Record<string, string> = Object.fromEntries(headingsOf(methodologySource, 2).map((h) => [h.id, h.text]));
@@ -292,7 +297,7 @@ export default function ModelPage() {
           <StageLegend stages={Array.from(new Set(both.map((m) => m.stage)))} hollowNote={compare.length ? "hollow = compare model" : undefined} />
 
           {/* §1 */}
-          <Section {...SECTIONS[0]}>
+          <Section {...SEC.ramps}>
             <Plate
               label="Plate M2 · Raw features on their ramps"
               caption="Each sub-score is a clipped linear ramp between a true-base anchor (1) and a post-trained anchor (0). Shaded zones are clipped. Hollow glyphs on the x axis are compare models."
@@ -326,7 +331,15 @@ export default function ModelPage() {
                       {model.subscores?.[k]?.score === null || !model.subscores?.[k] ? (
                         <NullPlate>Not measured for this checkpoint; the overall is the mean of the {nAvail} available.</NullPlate>
                       ) : (
-                        <TransferPlot k={k} model={model} compare={compare} width={300} height={64} />
+                        <>
+                          <TransferPlot k={k} model={model} compare={compare} width={300} height={64} />
+                          {ciBounds(model, CI_KEY[k]) && (
+                            <p className="small ink2" style={{ margin: "4px 0 0" }}>
+                              input {withCI(model.subscores[k]?.value, ciBounds(model, CI_KEY[k]), SUB_META[k].unit === "share" ? "pct" : k === "calib" ? "gap" : "nats")}
+                              <span className="ink3"> · 95% CI, {model.ci?.[CI_KEY[k]]?.n_docs ?? model.ci?.[CI_KEY[k]]?.n} {k === "prior" ? "samples" : "documents"}</span>
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -341,7 +354,7 @@ export default function ModelPage() {
           </Section>
 
           {/* §2 */}
-          <Section {...SECTIONS[1]}>
+          <Section {...SEC.calibration}>
             {rel ? (
               <div className="with-margin">
                 <div className="wm-main">
@@ -382,9 +395,10 @@ export default function ModelPage() {
             )}
             <Kv
               items={[
-                ["F_calib_gap (post-cutoff)", <Num path={P("fingerprint.F_calib_gap")} fmt="gap" />],
+                ["F_calib_gap (post-cutoff)", <><Num path={P("fingerprint.F_calib_gap")} fmt="gap" />{ciSpan(model, "calib_gap", "gap")}</>],
+                ...(ciBounds(model, "ECE") ? ([["ECE, 95% CI", <span className="ink2">{withCI(model.ci?.ECE?.value, ciBounds(model, "ECE"), "num3")}</span>]] as [React.ReactNode, React.ReactNode][]) : []),
                 ["calib_gap (Pile)", <Num path={P("fingerprint.calib_gap")} fmt="gap" />],
-                ["F_gap_domain_absmean", <Num path={P("fingerprint.F_gap_domain_absmean")} fmt="nats" />],
+                ["F_gap_domain_absmean", <><Num path={P("fingerprint.F_gap_domain_absmean")} fmt="nats" />{ciSpan(model, "spread", "nats")}</>],
                 ["F_gap_domain_min", <Num path={P("fingerprint.F_gap_domain_min")} fmt="gap" />],
                 ["tail.tf_fresh.gap_hiH", <Num path={P("tail.tf_fresh.gap_hiH")} fmt="gap" />],
                 ...(band
@@ -412,7 +426,7 @@ export default function ModelPage() {
           </Section>
 
           {/* §3 */}
-          <Section {...SECTIONS[2]}>
+          <Section {...SEC.tail}>
             {model.tail ? (
               <div className="tbl-scroll">
                 <table className="tbl tail-table">
@@ -481,8 +495,132 @@ export default function ModelPage() {
             </Plate>
           </Section>
 
-          {/* §4 */}
-          <Section {...SECTIONS[3]}>
+          {/* §4 tail reliability */}
+          <Section {...SEC["tail-mass"]}>
+            {model.tailmass ? (
+              <>
+                <div className="with-margin">
+                  <div className="wm-main">
+                    <Plate
+                      label="Plate M4b · Predicted tail mass vs realised rate"
+                      caption="Filled glyph: mean probability the model put below the threshold (predicted). Hollow circle: share of real post-cutoff tokens that fell below it (realised). A density model has the two together; realised to the right of predicted means the tail is thinner than real text. Compare models dashed."
+                      sources={TAIL_KS.flatMap((k) => [P(`tailmass.pred${k}`), P(`tailmass.real${k}`), P(`tailmass.ratio${k}`)])}
+                      data={{
+                        columns: ["threshold", "predicted", "realised", "realised / predicted", "95% CI", ...compare.map((c) => `${c.label} ratio`)],
+                        numeric: [false, true, true, true, false, ...compare.map(() => true)],
+                        rows: TAIL_KS.map((k) => {
+                          const b = ciBounds(model, `tail_ratio${k}`);
+                          return [
+                            tailLabel(k),
+                            fmtNum(model.tailmass?.[`pred${k}`] ?? null, "pct"),
+                            fmtNum(model.tailmass?.[`real${k}`] ?? null, "pct"),
+                            fmtNum(model.tailmass?.[`ratio${k}`] ?? null, "num2"),
+                            b ? `[${fmtNum(b[0], "num2")}, ${fmtNum(b[1], "num2")}]` : "—",
+                            ...compare.map((c) => fmtNum(c.tailmass?.[`ratio${k}`] ?? null, "num2")),
+                          ];
+                        }),
+                      }}
+                    >
+                      <TailMassRows model={model} compare={compare} />
+                    </Plate>
+                  </div>
+                  <aside className="wm-margin">
+                    <Kv
+                      items={[
+                        ["positions", <Num path={P("tailmass.n")} fmt="count" />],
+                        ["CE on tf_tail", <Num path={P("tailmass.CE")} fmt="nats" />],
+                        ["gap on tf_tail", <Num path={P("tailmass.gap")} fmt="gap" />],
+                        ...TAIL_KS.map((k) => [`ratio at ${tailLabel(k)}`, <span>{withCI(model.tailmass?.[`ratio${k}`] ?? null, ciBounds(model, `tail_ratio${k}`), "num2")}</span>] as [React.ReactNode, React.ReactNode]),
+                      ]}
+                    />
+                  </aside>
+                </div>
+                <Plate
+                  label="Plate M4c · Tail reliability diagram"
+                  caption="Positions sorted into quartiles of predicted tail mass m_k; x = mean predicted mass, y = mean realised rate in the quartile, log–log. Glyph size tells the threshold (largest = 10⁻²). Below the diagonal the tail is thinner than real text. Compare models hollow."
+                  sources={TAIL_KS.map((k) => P(`tailmass.bins${k}`))}
+                  data={{
+                    columns: ["threshold", "quartile", "predicted", "realised", "positions"],
+                    numeric: [false, true, true, true, true],
+                    rows: TAIL_KS.flatMap((k) => (model.tailmass?.[`bins${k}`] ?? []).map((b, i) => [tailLabel(k), String(i + 1), fmtNum(b[0], "pct"), fmtNum(b[1], "pct"), fmt(b[2], "count")])),
+                  }}
+                >
+                  <TailReliabilityDiagram model={model} compare={compare} />
+                </Plate>
+                <Plate
+                  label="Plate M4d · Realised / predicted at p < 10⁻³, every checkpoint"
+                  caption="Ratio of the realised rate to the predicted mass at the middle threshold. 1 = the tail is as thin as the model says. This checkpoint is highlighted; compare models outlined."
+                  sources={["models[*].tailmass.ratio3"]}
+                >
+                  <StageDotStrip
+                    bundle={bundle}
+                    value={(m) => get(m, "tailmass.ratio3")}
+                    valuePath={(m) => path(m, "tailmass.ratio3")}
+                    fmtKind="num2"
+                    axisTitle="realised / predicted tail mass at p < 10⁻³ (post-cutoff)"
+                    highlight={model.id}
+                    compare={compare.map((c) => c.id)}
+                  />
+                </Plate>
+              </>
+            ) : (
+              <NullPlate>Predicted tail mass not yet measured for this checkpoint (the pass is being run across the bench).</NullPlate>
+            )}
+          </Section>
+
+          {/* §5 prior mass */}
+          <Section {...SEC["prior-mass"]}>
+            {model.prior ? (
+              <div className="with-margin">
+                <div className="wm-main">
+                  <Plate
+                    label="Plate M4e · Prior mass on chat openers after the start token"
+                    caption="Exact probability that a document starts with any of the instruction openers, against the natural-start controls, then the most probable instruction templates. Log axis from 10⁻¹². Dashed ticks are compare models."
+                    sources={[P("prior.instr_mass"), P("prior.ctrl_mass"), P("prior.logp"), "reference.prior_openers"]}
+                    data={{
+                      columns: ["template", "set", "text", "log P", "P", ...compare.map((c) => `${c.label} log P`)],
+                      numeric: [false, false, false, true, true, ...compare.map(() => true)],
+                      rows: Object.entries(model.prior.logp)
+                        .sort((a, b) => (b[1] ?? -Infinity) - (a[1] ?? -Infinity))
+                        .map(([n, v]) => [
+                          n,
+                          bundle.reference.prior_openers?.[n]?.set ?? "",
+                          JSON.stringify(bundle.reference.prior_openers?.[n]?.text ?? ""),
+                          fmtNum(v, "num2"),
+                          fmtMass(isNum(v) ? Math.exp(v) : null),
+                          ...compare.map((c) => fmtNum(c.prior?.logp?.[n] ?? null, "num2")),
+                        ]),
+                    }}
+                  >
+                    <PriorMassBars model={model} bundle={bundle} compare={compare} />
+                  </Plate>
+                </div>
+                <aside className="wm-margin">
+                  <Kv
+                    items={[
+                      ["instruction mass (exact)", <span>{fmtMass(model.prior.instr_mass)}</span>],
+                      ["control mass (exact)", <span>{fmtMass(model.prior.ctrl_mass)}</span>],
+                      ["most probable opener", <code>{model.prior.instr_argmax ?? "—"}</code>],
+                      ["marker rate (32 samples)", <><Num path={P("fingerprint.roll_instr_marker_rate")} fmt="pct" />{ciSpan(model, "prior_marker", "pct")}</>],
+                    ]}
+                  />
+                </aside>
+              </div>
+            ) : (
+              <NullPlate>
+                Exact prior probe not yet run for this checkpoint. The sampled marker rate is <Num path={P("fingerprint.roll_instr_marker_rate")} fmt="pct" />
+                {ciSpan(model, "prior_marker", "pct")}.
+              </NullPlate>
+            )}
+          </Section>
+
+          {/* §6 OOD */}
+          <Section {...SEC.ood}>
+            {model.ood ? <OodTable model={model} compare={compare} /> : <NullPlate>Out-of-distribution pass not yet run for this checkpoint.</NullPlate>}
+          </Section>
+
+          {/* §7 */}
+          <Section {...SEC.surnames}>
             {!s ? (
               <NullPlate>Surname test not run for this checkpoint.</NullPlate>
             ) : (
@@ -519,8 +657,8 @@ export default function ModelPage() {
             )}
           </Section>
 
-          {/* §5 */}
-          <Section {...SECTIONS[4]}>
+          {/* §8 */}
+          <Section {...SEC.genres}>
             {!model.weird ? (
               <NullPlate>Rare-genre pass not run for this checkpoint.</NullPlate>
             ) : (
@@ -528,8 +666,8 @@ export default function ModelPage() {
             )}
           </Section>
 
-          {/* §6 */}
-          <Section {...SECTIONS[5]}>
+          {/* §9 */}
+          <Section {...SEC.samples}>
             {model.selfboot?.lexical ? (
               <Plate
                 label="Plate M6 · Own-sample lexical statistics vs the Pile"
@@ -567,8 +705,8 @@ export default function ModelPage() {
             </p>
           </Section>
 
-          {/* §7 */}
-          <Section {...SECTIONS[6]}>
+          {/* §10 */}
+          <Section {...SEC.fingerprint}>
             <details className="disclosure">
               <summary>
                 <Chevron /> Show all {Object.keys(model.fingerprint ?? {}).length} fingerprint features
@@ -851,6 +989,81 @@ function Fingerprint({ model, compare }: { model: Model; compare: Model[] }) {
             </div>
           </div>
         ))}
+    </>
+  );
+}
+
+
+/** " [lo, hi]" after a value when the bundle carries its bootstrap interval. */
+function ciSpan(m: Model, key: string, kind: Fmt) {
+  const b = ciBounds(m, key);
+  if (!b) return null;
+  return (
+    <span className="ink3" title={`95% bootstrap interval (${m.ci?.[key]?.n_docs ?? m.ci?.[key]?.n ?? "—"} resampled units), models[${m.id}].ci.${key}`}>
+      {" "}
+      [{fmtNum(b[0], kind)}, {fmtNum(b[1], kind)}]
+    </span>
+  );
+}
+
+function OodTable({ model, compare }: { model: Model; compare: Model[] }) {
+  const bundle = useBundle();
+  const rows = oodRows(model);
+  const all = model.ood?.ALL ?? null;
+  const maxGap = Math.max(0.05, ...bundle.models.flatMap((m) => Object.values(m.ood ?? {}).map((v) => (v && isNum(v.gap) ? Math.abs(v.gap) : 0))));
+  const first = compare.find((c) => c.ood);
+  return (
+    <>
+      <p className="small ink2">
+        Synthetic genres (not post-cutoff prose). Hex and base64 are random bytes: the right answer is near-uniform, so any negative gap there is over-confidence. Gap bars share one
+        scale across the bundle (±{fmtNum(maxGap, "num3")} nats); dashed ticks are compare models.
+      </p>
+      <div className="tbl-scroll">
+        <table className="tbl genre-tbl">
+          <thead>
+            <tr>
+              <th scope="col">genre</th>
+              <th scope="col" className="n">CE, nats</th>
+              <th scope="col" className="n">gap, nats</th>
+              <th scope="col" aria-hidden="true" style={{ width: 168 }} />
+              <th scope="col" className="n">realised / predicted at 10⁻³</th>
+              {first && (
+                <th scope="col" className="n">
+                  {first.label}: gap
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {[...(all ? [{ key: "ALL", label: "ALL genres", note: "", stats: all }] : []), ...rows].map((r) => (
+              <tr key={r.key} className={r.key === "ALL" ? "pinned" : undefined}>
+                <th scope="row" style={{ fontWeight: r.key === "ALL" ? 600 : 400, background: "none", whiteSpace: "nowrap" }}>
+                  {r.label}
+                  {r.note && <span className="small ink3" style={{ display: "block", fontWeight: 400 }}>{r.note}</span>}
+                </th>
+                <td className="n">
+                  <Num path={path(model, ["ood", r.key, "CE"])} fmt="nats" unit={false} />
+                </td>
+                <td className="n">
+                  <Num path={path(model, ["ood", r.key, "gap"])} fmt="gap" unit={false} />
+                </td>
+                <td style={{ width: 168 }}>
+                  <DivergingBar value={r.stats?.gap ?? null} max={maxGap} ghosts={compare.map((c) => c.ood?.[r.key]?.gap ?? null)} width={160} />
+                </td>
+                <td className="n">
+                  <Num path={path(model, ["ood", r.key, "ratio3"])} fmt="num2" />
+                </td>
+                {first && (
+                  <td className="n ink2">
+                    {fmtNum(first.ood?.[r.key]?.gap ?? null, "gap")}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <SourceLine paths={[`${path(model, "ood")}[genre] = {CE, H, gap, pred2..4, real2..4, ratio2..4, bins2..4}`]} />
     </>
   );
 }

@@ -4,170 +4,671 @@
   "title": "True Base Bench bundle",
   "description": "data/bench_v<N>.json (docs/SPEC.md, Data contract). NaN/Infinity in the raw file are read as null (not measured).",
   "type": "object",
-  "required": ["schema_version", "generated", "n_models", "reference", "models"],
+  "required": [
+    "schema_version",
+    "generated",
+    "n_models",
+    "reference",
+    "models"
+  ],
   "properties": {
-    "schema_version": { "type": "integer", "enum": [1] },
-    "generated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}" },
-    "n_models": { "type": "integer", "minimum": 0 },
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "generated": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}"
+    },
+    "n_models": {
+      "type": "integer",
+      "minimum": 0
+    },
     "reference": {
       "type": "object",
       "properties": {
-        "census_entropy_top2000": { "$ref": "#/definitions/numOrNull" },
-        "census_self_entropy_all": { "$ref": "#/definitions/numOrNull" },
-        "pile_lexical": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/numMap" }] },
-        "ramps": {
+        "census_entropy_top2000": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "census_self_entropy_all": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "pile_lexical": {
           "oneOf": [
-            { "type": "null" },
             {
-              "type": "object",
-              "additionalProperties": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/numMap"
             }
           ]
         },
-        "method": { "type": ["object", "null"] },
-        "surname_frames": { "type": ["object", "null"] },
-        "passes": { "type": ["object", "null"] }
+        "ramps": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          ]
+        },
+        "method": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "surname_frames": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "passes": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "prior_openers": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": [
+                  "set",
+                  "text"
+                ],
+                "properties": {
+                  "set": {
+                    "enum": [
+                      "instr",
+                      "ctrl"
+                    ]
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
-    "models": { "type": "array", "items": { "$ref": "#/definitions/model" } },
-    "explainers": { "type": ["object", "null"] }
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/model"
+      }
+    },
+    "explainers": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
   },
   "definitions": {
-    "numOrNull": { "type": ["number", "null"] },
-    "numMap": { "type": "object", "additionalProperties": { "type": ["number", "null"] } },
+    "numOrNull": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "numMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
     "subscore": {
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
-          "required": ["score", "value", "source"],
+          "required": [
+            "score",
+            "value",
+            "source"
+          ],
           "properties": {
-            "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-            "value": { "type": ["number", "null"] },
-            "source": { "type": ["string", "null"] }
+            "score": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         }
       ]
     },
     "triple": {
       "oneOf": [
-        { "type": "null" },
-        { "type": "array", "items": { "type": ["number", "null"] }, "minItems": 3, "maxItems": 3 }
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
       ]
     },
-    "tailPass": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/numMap" }] },
+    "tailPass": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/numMap"
+        }
+      ]
+    },
     "bin": {
       "type": "array",
       "minItems": 5,
       "maxItems": 5,
-      "items": { "type": ["number", "null"] }
+      "items": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
     },
     "model": {
       "type": "object",
-      "required": ["id", "family", "stage", "label", "order", "score", "subscores", "fingerprint", "surnames", "weird", "selfboot", "tail"],
+      "required": [
+        "id",
+        "family",
+        "stage",
+        "label",
+        "order",
+        "score",
+        "subscores",
+        "fingerprint",
+        "surnames",
+        "weird",
+        "selfboot",
+        "tail"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "family": { "type": "string", "minLength": 1 },
-        "stage": { "enum": ["pre-anneal", "anneal", "base", "post-trained"] },
-        "label": { "type": "string", "minLength": 1 },
-        "order": { "type": "integer", "minimum": 0 },
-        "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "enum": [
+            "pre-anneal",
+            "anneal",
+            "base",
+            "post-trained"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
         "subscores": {
           "type": "object",
-          "required": ["calib", "spread", "memo", "prior"],
+          "required": [
+            "calib",
+            "spread",
+            "memo",
+            "prior"
+          ],
           "properties": {
-            "calib": { "$ref": "#/definitions/subscore" },
-            "spread": { "$ref": "#/definitions/subscore" },
-            "memo": { "$ref": "#/definitions/subscore" },
-            "prior": { "$ref": "#/definitions/subscore" }
+            "calib": {
+              "$ref": "#/definitions/subscore"
+            },
+            "spread": {
+              "$ref": "#/definitions/subscore"
+            },
+            "memo": {
+              "$ref": "#/definitions/subscore"
+            },
+            "prior": {
+              "$ref": "#/definitions/subscore"
+            }
           }
         },
-        "fingerprint": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/numMap" }] },
+        "fingerprint": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/numMap"
+            }
+          ]
+        },
         "surnames": {
           "oneOf": [
-            { "type": "null" },
+            {
+              "type": "null"
+            },
             {
               "type": "object",
               "properties": {
-                "KL_desc": { "$ref": "#/definitions/numOrNull" },
-                "KL_few": { "$ref": "#/definitions/numOrNull" },
-                "H_desc": { "$ref": "#/definitions/numOrNull" },
-                "H_few": { "$ref": "#/definitions/numOrNull" },
-                "H_r": { "$ref": "#/definitions/numOrNull" },
-                "top10_desc": { "$ref": "#/definitions/numOrNull" },
-                "top10_few": { "$ref": "#/definitions/numOrNull" },
-                "smith_plain": { "$ref": "#/definitions/numOrNull" },
-                "junk": { "$ref": "#/definitions/numOrNull" },
-                "distinct": { "$ref": "#/definitions/numOrNull" },
-                "surpr": { "$ref": "#/definitions/numOrNull" },
+                "KL_desc": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "KL_few": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "H_desc": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "H_few": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "H_r": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "top10_desc": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "top10_few": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "smith_plain": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "junk": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "distinct": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "surpr": {
+                  "$ref": "#/definitions/numOrNull"
+                },
                 "top_names": {
-                  "type": ["array", "null"],
+                  "type": [
+                    "array",
+                    "null"
+                  ],
                   "items": {
                     "type": "object",
-                    "required": ["name"],
+                    "required": [
+                      "name"
+                    ],
                     "properties": {
-                      "name": { "type": "string" },
-                      "p_census": { "$ref": "#/definitions/numOrNull" },
-                      "p_desc": { "$ref": "#/definitions/numOrNull" },
-                      "p_few": { "$ref": "#/definitions/numOrNull" }
+                      "name": {
+                        "type": "string"
+                      },
+                      "p_census": {
+                        "$ref": "#/definitions/numOrNull"
+                      },
+                      "p_desc": {
+                        "$ref": "#/definitions/numOrNull"
+                      },
+                      "p_few": {
+                        "$ref": "#/definitions/numOrNull"
+                      }
                     }
                   }
                 },
-                "logp_top50": { "type": ["object", "null"] }
+                "logp_top50": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
               }
             }
           ]
         },
         "weird": {
-          "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": { "$ref": "#/definitions/triple" } }]
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/triple"
+              }
+            }
+          ]
         },
         "selfboot": {
           "oneOf": [
-            { "type": "null" },
+            {
+              "type": "null"
+            },
             {
               "type": "object",
               "properties": {
                 "reliability": {
                   "oneOf": [
-                    { "type": "null" },
+                    {
+                      "type": "null"
+                    },
                     {
                       "type": "object",
                       "properties": {
-                        "ECE": { "$ref": "#/definitions/numOrNull" },
-                        "top1_acc": { "$ref": "#/definitions/numOrNull" },
-                        "mean_p1": { "$ref": "#/definitions/numOrNull" },
-                        "bins": { "type": ["array", "null"], "items": { "$ref": "#/definitions/bin" } }
+                        "ECE": {
+                          "$ref": "#/definitions/numOrNull"
+                        },
+                        "top1_acc": {
+                          "$ref": "#/definitions/numOrNull"
+                        },
+                        "mean_p1": {
+                          "$ref": "#/definitions/numOrNull"
+                        },
+                        "bins": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "$ref": "#/definitions/bin"
+                          }
+                        }
                       }
                     }
                   ]
                 },
-                "lexical": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/numMap" }] }
+                "lexical": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/definitions/numMap"
+                    }
+                  ]
+                }
               }
             }
           ]
         },
         "tail": {
           "oneOf": [
-            { "type": "null" },
+            {
+              "type": "null"
+            },
             {
               "type": "object",
               "properties": {
-                "tf": { "$ref": "#/definitions/tailPass" },
-                "tf_fresh": { "$ref": "#/definitions/tailPass" },
-                "tf_weird": { "$ref": "#/definitions/tailPass" }
+                "tf": {
+                  "$ref": "#/definitions/tailPass"
+                },
+                "tf_fresh": {
+                  "$ref": "#/definitions/tailPass"
+                },
+                "tf_weird": {
+                  "$ref": "#/definitions/tailPass"
+                }
               },
-              "additionalProperties": { "$ref": "#/definitions/tailPass" }
+              "additionalProperties": {
+                "$ref": "#/definitions/tailPass"
+              }
             }
           ]
         },
         "params": {
           "oneOf": [
-            { "type": "null" },
+            {
+              "type": "null"
+            },
             {
               "type": "object",
-              "properties": { "total_b": { "$ref": "#/definitions/numOrNull" }, "active_b": { "$ref": "#/definitions/numOrNull" } }
+              "properties": {
+                "total_b": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "active_b": {
+                  "$ref": "#/definitions/numOrNull"
+                }
+              }
             }
           ]
+        },
+        "ci": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/interval"
+              }
+            }
+          ]
+        },
+        "tailmass": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/tailStats"
+            }
+          ]
+        },
+        "ood": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/tailStats"
+              }
+            }
+          ]
+        },
+        "prior": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "logp"
+              ],
+              "properties": {
+                "logp": {
+                  "$ref": "#/definitions/numMap"
+                },
+                "instr_logmass": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "ctrl_logmass": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "instr_mass": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "ctrl_mass": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "instr_max": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "instr_argmax": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "required": [
+        "value"
+      ],
+      "properties": {
+        "value": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "ci95": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/numOrNull"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/numOrNull"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "tailStats": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "CE": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "H": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "gap": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "pred2": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "pred3": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "pred4": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "real2": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "real3": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "real4": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "ratio2": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "ratio3": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "ratio4": {
+          "$ref": "#/definitions/numOrNull"
+        },
+        "bins2": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/definitions/numOrNull"
+            }
+          }
+        },
+        "bins3": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/definitions/numOrNull"
+            }
+          }
+        },
+        "bins4": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/definitions/numOrNull"
+            }
+          }
         }
       }
     }

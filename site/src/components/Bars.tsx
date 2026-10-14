@@ -8,14 +8,19 @@ export function ScoreBar({
   height = 8,
   ticks = false,
   title,
+  range,
 }: {
   value: number | null;
   width?: number;
   height?: number;
   ticks?: boolean;
   title?: string;
+  /** 95% interval in score units (ramp applied to the CI bounds): drawn as a thin whisker with end caps */
+  range?: [number, number] | null;
 }) {
   const id = "hatch";
+  const cl = (x: number) => Math.max(0, Math.min(1, x)) * width;
+  const wy = height / 2;
   return (
     <svg
       width={width}
@@ -29,6 +34,13 @@ export function ScoreBar({
       {title && <title>{title}</title>}
       <rect width={width} height={height} fill={isNum(value) ? "var(--track)" : `url(#${id})`} />
       {isNum(value) && <rect width={Math.max(0, Math.min(1, value)) * width} height={height} fill="var(--bar)" />}
+      {isNum(value) && range && isNum(range[0]) && isNum(range[1]) && (
+        <g className="whisker" aria-hidden="true">
+          <line x1={cl(range[0])} x2={cl(range[1])} y1={wy} y2={wy} stroke="var(--ink-2)" strokeWidth={1} />
+          <line x1={cl(range[0])} x2={cl(range[0])} y1={wy - 2.5} y2={wy + 2.5} stroke="var(--ink-2)" strokeWidth={1} />
+          <line x1={cl(range[1])} x2={cl(range[1])} y1={wy - 2.5} y2={wy + 2.5} stroke="var(--ink-2)" strokeWidth={1} />
+        </g>
+      )}
       {ticks &&
         [0.5, 1].map((t) => (
           <line key={t} x1={t * width - (t === 1 ? 0.5 : 0)} x2={t * width - (t === 1 ? 0.5 : 0)} y1={-2} y2={height + 2} stroke="var(--rule-strong)" />

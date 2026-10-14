@@ -30,6 +30,8 @@ export interface Check {
   ok: boolean;
   /** what no longer holds, when !ok */
   note: string;
+  /** true when the bundle does not carry enough data to test the claim; ok is then true and note says what is missing */
+  pending?: boolean;
 }
 
 const num = (x: number | null | undefined): x is number => typeof x === "number" && Number.isFinite(x);
@@ -323,6 +325,69 @@ export function f6(b: Bundle): F6 {
   };
 }
 
+// ---------- F7 tail reliability, exact prior, OOD noise (bundle v6 blocks; keyed on data presence) ----------
+export interface F7 {
+  /** models carrying the tailmass block */
+  withTail: Model[];
+  withPrior: Model[];
+  withOod: Model[];
+  /** ratio3 by stage group, when enough models carry it */
+  ratio3: { bases: number[]; posts: number[] };
+  checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check };
+}
+
+/** Minimum models per group before a F7 claim is tested at all; below it the check reports "insufficient data" and holds. */
+export const F7_MIN = 4;
+
+function pending(what: string, n: number): Check {
+  return { ok: true, pending: true, note: `insufficient data for ${what} (${n} checkpoint${n === 1 ? "" : "s"} measured, ${F7_MIN} needed per group)` };
+}
+
+export function f7(b: Bundle): F7 {
+  const withTail = b.models.filter((m) => m.tailmass && num(get(m, "tailmass.ratio3")));
+  const withPrior = b.models.filter((m) => m.prior && num(get(m, "prior.instr_mass")));
+  const withOod = b.models.filter((m) => m.ood && num(get(m, "ood.base64.gap")));
+  const isBase = (m: Model) => m.stage === "pre-anneal" || m.stage === "base";
+  const bases = withTail.filter(isBase).map((m) => get(m, "tailmass.ratio3")!);
+  const posts = withTail.filter((m) => m.stage === "post-trained").map((m) => get(m, "tailmass.ratio3")!);
+  const baseMed = median(bases);
+  const postMed = median(posts);
+  // exact prior vs sampled marker rate: rank agreement (Spearman sign) over models with both
+  const pairs = withPrior.map((m) => ({ x: Math.log10(Math.max(1e-300, get(m, "prior.instr_mass")!)), y: fp(m, "roll_instr_marker_rate") })).filter((p): p is { x: number; y: number } => num(p.y));
+  const rank = (xs: number[]) => xs.map((v) => xs.filter((u) => u < v).length);
+  const rho = (() => {
+    if (pairs.length < F7_MIN) return null;
+    const rx = rank(pairs.map((p) => p.x));
+    const ry = rank(pairs.map((p) => p.y));
+    const d2 = rx.reduce((a, r, i) => a + (r - ry[i]) ** 2, 0);
+    const n = pairs.length;
+    return 1 - (6 * d2) / (n * (n * n - 1));
+  })();
+  const noiseBad = withOod.filter((m) => isBase(m) && (get(m, "ood.base64.gap") ?? 0) < -0.1);
+  return {
+    withTail,
+    withPrior,
+    withOod,
+    ratio3: { bases, posts },
+    checks: {
+      tailBases:
+        bases.length < F7_MIN
+          ? pending("tail reliability of bases", bases.length)
+          : { ok: num(baseMed) && Math.abs(baseMed - 1) < 0.25, note: "the median base checkpoint's realised/predicted tail ratio at 10⁻³ is not within 25% of 1" },
+      tailPost:
+        bases.length < F7_MIN || posts.length < F7_MIN
+          ? pending("tail reliability of post-trained checkpoints", Math.min(bases.length, posts.length))
+          : { ok: num(baseMed) && num(postMed) && postMed > baseMed, note: "post-trained checkpoints no longer have a thinner tail (higher ratio) than bases" },
+      priorAgrees:
+        rho === null ? pending("exact prior vs marker rate", pairs.length) : { ok: rho > 0.3, note: `the exact instruction mass and the sampled marker rate disagree in rank order (Spearman ${rho.toFixed(2)})` },
+      noise:
+        withOod.filter(isBase).length < F7_MIN
+          ? pending("over-confidence on noise", withOod.filter(isBase).length)
+          : { ok: noiseBad.length === 0, note: `a base checkpoint is over-confident by more than 0.1 nats on random base64: ${noiseBad.map((m) => m.label).join(", ")}` },
+    },
+  };
+}
+
 export function allFindings(b: Bundle) {
-  return { f1: f1(b), f2: f2(b), f3: f3(b), f4: f4(b), f5: f5(b), f6: f6(b) };
+  return { f1: f1(b), f2: f2(b), f3: f3(b), f4: f4(b), f5: f5(b), f6: f6(b), f7: f7(b) };
 }

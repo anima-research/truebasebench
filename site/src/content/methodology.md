@@ -102,6 +102,39 @@ The surname test is shown, not scored.
 
 For each teacher-forced corpus (`tf`, `tf_fresh`, `tf_weird`) `vh_tail.py` records how the real text falls in the model's tail: the share of real tokens with s > 7 and s > 10 nats, the share with rank > 100 and rank > 1000, mean cross-entropy, mean entropy, the 99th percentile of s and the gap at positions with H > 4. A token at s > 10 is one the model gave less than about 1 in 22,000; on post-cutoff text these are real tokens the model treated as near-impossible. Shown, not scored.
 
+## Predicted tail mass {#tail-mass}
+
+The realised tail statistics above say how often real text fell where the model put little mass; they do not say how much mass the model *expected* to spend there. Both scorers now record, at every teacher-forced position, the **predicted tail mass** m_k: the total probability the model assigns to tokens with p < 10⁻ᵏ, for k = 2, 3, 4. The matching **realised rate** r_k is the share of real next tokens whose surprisal exceeds k·ln 10, that is, tokens the model had placed below that threshold.
+
+For a density model the two agree in expectation: r_k ≈ E[m_k]. The ratio r_k / E[m_k] is the tail's reliability. Above 1, the model's "impossible" set contains more real text than it admits (the tail is thinner than it should be); below 1, the model spreads more mass over the tail than real text ever uses. The tail reliability diagram sorts positions into quartiles of m_k and plots the mean predicted mass against the mean realised rate in each; points below the diagonal are over-confident in the tail, and the lowest quartile is where the model was surest.
+
+This pass (`tf_tail`) reads the same 300-document post-cutoff subset for every model, so the giants and the small models are on the same text. Shown, not scored.
+
+## Out-of-distribution genres {#ood}
+
+A second corpus (`tf_ood`, 140 documents) asks the same questions on text that no training mix resembles, in genres with a known right answer:
+
+- **hex dumps** and **base64** of random bytes: pure noise. The only correct behaviour is near-uniform over the admissible symbols, so a negative gap here is over-confidence with no excuse, and the realised tail rate measures how often the model called a random symbol impossible;
+- **minified JavaScript** from this site's own production build;
+- **chess PGN** from random-walk games (legal moves, no plan);
+- **random DNA** in FASTA layout;
+- **word-shuffled English** from Pile documents, where the vocabulary is familiar and the order is not;
+- **random numeric CSV**.
+
+Per genre the bundle carries the cross-entropy, the calibration gap and the tail reliability. Shown, not scored.
+
+## Exact prior mass on chat openers {#prior-exact}
+
+The instruction-shaped prior above is read off 32 samples, so its 95% interval is about ±0.15. The exact probe replaces sampling with a sum: for 20 chat and instruction openers (ChatML `<|im_start|>user`, Llama-3 headers, `<|user|>`, `<start_of_turn>user`, `<|User|>`, `[INST]`, the Alpaca header and `### Instruction:`, `### Human:`, `Human:`, `User:`, `Q:`, `Question:`, `Instruction:`, `Prompt:`, `You are a helpful assistant`, `Write a`, `The following is a conversation between`) and 15 natural document starts as controls (`The`, `In`, `# `, `import`, `Chapter 1`, `<!DOCTYPE html>`, a digit, a newline, a quote, …), the scripts compute log P(the document starts with this string | start token) by teacher-forced replay, summing per-token surprisals. No opener is a prefix of another, so the sum over a set is the probability that a document begins with any of them: the **instruction mass** and the **control mass**. For tokenizers that add no start token (Qwen) the end-of-text token is used as the document start, which is how those models see a document boundary.
+
+One forward pass per template, exact, no sampling noise. The model page shows both masses on a log axis next to the sampled marker rate with its interval. It is displayed alongside the `prior` sub-score and does not replace it in the score.
+
+## Uncertainty {#uncertainty}
+
+The bundle carries 95% intervals for the headline statistics, from a document-level clustered bootstrap (2,000 resamples of whole documents, percentile intervals; `vh_boot.py`): the calibration gap, the per-domain spread, top-1 ECE, the Wikipedia verbatim share, the tail-reliability ratios, and the sampled marker rate (resampled over rollouts). The surname KLs are reported with their range over the three frames of each kind, because three frames are too few to bootstrap.
+
+What the intervals cover: sampling of documents from the fixed corpus, for one model and one tokenizer. What they do not cover: the choice of corpus, the anchors of the ramps, tokenizer differences between models, or run-to-run numerical variation in the inference stack. The gap intervals are narrow (a few thousandths of a nat) because the corpus is large; the verbatim share rests on 60 Wikipedia documents and the marker rate on 32 samples, and their intervals say so.
+
 ## Own-sample lexical statistics {#lexical}
 
 `vh_selfboot.py` takes the first 700 words of each bare-`<bos>` sample (samples with fewer than 60% of that budget are dropped) and computes type-token ratio, hapax share, distinct 4-gram share, Zipf slope and gzip ratio, against the same statistics on Pile documents at the same budget (the reference values ship in `reference.pile_lexical`). Free-running samples at T = 1 can fall into single-glyph or short-loop attractors; these statistics show it. They are shown and not scored, because the collapse is not diagnostic: pre-anneal and annealed checkpoints both do it (see [Findings](/findings#f4)).
@@ -125,6 +158,6 @@ For calib, a positive gap is clipped to 0 before the ramp, so under-confidence i
 ## Limits {#limits}
 
 - The anchors come from two families. A recipe that changes the distribution in a way none of the four features sees will score as a true base.
-- `prior` rests on 32 samples and a marker list; a model that has seen instruction data but never emits its markers unprompted is not caught by it.
+- `prior` rests on 32 samples and a marker list; a model that has seen instruction data but never emits its markers unprompted is not caught by it. The [exact prior mass](#prior-exact) is the planned replacement; until it has been measured on every checkpoint it is shown, not scored.
 - `memo` depends on Wikipedia being in the anneal mix. An anneal on other sources can memorise without moving it; the per-genre verbatim shares on `tf_weird` are there to check.
 - The post-cutoff corpus is post-cutoff for every model measured so far. A checkpoint trained on data from after April 2026 needs a newer corpus, and the bundle would need a new version.

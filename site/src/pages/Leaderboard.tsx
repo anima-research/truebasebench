@@ -1,21 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useBundle, useLoaded } from "../data/BundleContext";
-import {
-  compareOverall,
-  familiesOf,
-  fmtParams,
-  ladder,
-  ladderColumns,
-  nAvailable,
-  params,
-  ranked,
-  SIZE_LABEL,
-  sizeBucket,
-  STAGE_CODE,
-  stageOrder,
-  type SizeBucket,
-} from "../data/derive";
+import { CI_KEY, ciBounds, ciScore, compareOverall, familiesOf, fmtParams, ladder, ladderColumns, nAvailable, params, ranked, SIZE_LABEL, sizeBucket, STAGE_CODE, stageOrder, type SizeBucket } from "../data/derive";
 import { RAMPS, SUB_META } from "../data/method";
 import { SUB_KEYS, type Model, type Stage, type SubKey } from "../data/types";
 import { fmt, fmtNum } from "../lib/numfmt";
@@ -45,10 +31,19 @@ export function anchorsText(k: SubKey): string {
   return `1 at ${f(one)}, 0 at ${f(zero)}`;
 }
 
+/** "value [lo, hi]" of the sub-score's input when the bundle carries a bootstrap interval for it. */
+export function ciText(m: Model, k: SubKey): string | null {
+  const b = ciBounds(m, CI_KEY[k]);
+  if (!b) return null;
+  const f = (x: number) => rawFmt(k, x);
+  return `95% CI [${f(b[0])}, ${f(b[1])}]`;
+}
+
 export function cellTitle(m: Model, k: SubKey): string {
   const s = m.subscores?.[k];
   if (!s || s.score === null) return `${k}: not measured; overall is the mean of the ${nAvailable(m)} available`;
-  return `${k} ${fmtNum(s.score, "score")} ← ${s.source ?? SUB_META[k].feature} ${rawFmt(k, s.value)} (${anchorsText(k)})`;
+  const ci = ciText(m, k);
+  return `${k} ${fmtNum(s.score, "score")} ← ${s.source ?? SUB_META[k].feature} ${rawFmt(k, s.value)}${ci ? " " + ci : ""} (${anchorsText(k)})`;
 }
 
 function headerTitle(k: SubKey): string {
@@ -70,7 +65,7 @@ function SubCell({ m, k, raw }: { m: Model; k: SubKey; raw: boolean }) {
   }
   return (
     <span className="subcell" title={title}>
-      <ScoreBar value={s?.score ?? null} width={64} height={6} title={title} />
+      <ScoreBar value={s?.score ?? null} width={64} height={6} title={title} range={ciScore(m, k)} />
       <span className="v">{fmtNum(s?.score ?? null, "score")}</span>
     </span>
   );

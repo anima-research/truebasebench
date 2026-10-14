@@ -74,6 +74,56 @@ export interface Surnames {
   [k: string]: unknown;
 }
 
+/** A statistic with a 95% bootstrap interval (ci95) or a min/max over frames (range). */
+export interface Interval {
+  value: number | null;
+  ci95?: [number | null, number | null];
+  range?: [number | null, number | null];
+  n_docs?: number;
+  n?: number;
+  n_frames?: number;
+  [k: string]: unknown;
+}
+/** keys as written by docs/vh_boot.py: calib_gap, spread, ECE, memo_wiki, tail_ratio2..4, prior_marker, KL_few, KL_desc */
+export type CI = Record<string, Interval>;
+
+/** [mean predicted tail mass, mean realised rate, positions] per quartile of predicted mass */
+export type TailBin = [number | null, number | null, number | null];
+
+/** Predicted tail mass vs realised rate on one corpus (docs/vh_tailmass.py). */
+export interface TailStats {
+  n?: number | null;
+  CE?: number | null;
+  H?: number | null;
+  gap?: number | null;
+  pred2?: number | null;
+  real2?: number | null;
+  ratio2?: number | null;
+  pred3?: number | null;
+  real3?: number | null;
+  ratio3?: number | null;
+  pred4?: number | null;
+  real4?: number | null;
+  ratio4?: number | null;
+  bins2?: TailBin[] | null;
+  bins3?: TailBin[] | null;
+  bins4?: TailBin[] | null;
+  [k: string]: unknown;
+}
+
+/** Exact prior mass on chat/instruction openers after the start token. */
+export interface Prior {
+  /** template name -> log P(opener | start) */
+  logp: Record<string, number | null>;
+  instr_logmass?: number | null;
+  ctrl_logmass?: number | null;
+  instr_mass?: number | null;
+  ctrl_mass?: number | null;
+  instr_max?: number | null;
+  instr_argmax?: string | null;
+  [k: string]: unknown;
+}
+
 /** genre -> [gap, verbatim share, CE] */
 export type Weird = Record<string, [number | null, number | null, number | null] | null>;
 
@@ -90,6 +140,12 @@ export interface Model {
   weird: Weird | null;
   selfboot: { reliability?: Reliability | null; lexical?: Lexical | null } | null;
   tail: Partial<Record<TailKey, TailPass | null>> | null;
+  /** bootstrap intervals (bundle v6+; absent in older bundles) */
+  ci?: CI | null;
+  tailmass?: TailStats | null;
+  prior?: Prior | null;
+  /** OOD genre -> tail stats (plus "ALL") */
+  ood?: Record<string, TailStats | null> | null;
   params?: { total_b?: number | null; active_b?: number | null } | null;
   [k: string]: unknown;
 }
@@ -101,6 +157,8 @@ export interface Reference {
   ramps?: Record<string, [number, number]> | null;
   method?: { run_min_len?: number; run_H_max?: number; marker_list?: string[] } | null;
   surname_frames?: { desc?: string[]; few?: string[] } | null;
+  /** template name -> {set: instr|ctrl, text} for the prior probe */
+  prior_openers?: Record<string, { set: "instr" | "ctrl"; text: string }> | null;
   passes?: Record<string, unknown> | null;
   [k: string]: unknown;
 }

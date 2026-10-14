@@ -34,6 +34,12 @@ describe("findings predicates on the latest bundle", () => {
       f3: { student: F.f3.student?.id, otherBaseMin: F.f3.otherBaseMin?.model.id, postMax: F.f3.postMax?.model.id },
       f4: { specimen: F.f4.specimen?.id, postRepMedian: r3(F.f4.postRepMedian) },
       f5: { cleanRange: F.f5.cleanRange?.map(r3), B: F.f5.B?.id, sharpen: F.f5.sharpenPairs.length },
+      f7: {
+        withTail: F.f7.withTail.length,
+        withPrior: F.f7.withPrior.length,
+        withOod: F.f7.withOod.length,
+        pending: Object.entries(F.f7.checks).filter(([, c]) => c.pending).map(([k]) => k),
+      },
       f6: {
         pairs: F.f6.pairs.length,
         rateRange: F.f6.rateRange?.map(r3),

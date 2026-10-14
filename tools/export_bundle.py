@@ -10,6 +10,9 @@ Reads the files the measurement scripts write into results/analysis/ (see docs/v
     weird_summary.json    vh_names_table.py         {model: {ALL: [gap, runfrac, CE], <genre>: [...]}}
     selfboot.json         vh_selfboot.py            {reference: {...}, models: {model: {reliability, lexical}}}
     tail_realised.json    vh_tail.py                [{model, tf: {...}, tf_fresh: {...}, tf_weird: {...}}]
+    bootstrap.json        vh_boot.py                {model: {stat: {value, ci95:[lo,hi] | range:[min,max], n_docs|n|n_frames}}}
+    tailmass.json         vh_tailmass.py            {model: {tail: {...}, ood: {genre: {...}}, prior: {logp, instr_mass, ...}}}
+    prior.json            corpus of the prior probe  {tf: [{name, set, text}]}  (falls back to data/prior_openers.json)
 
 Only fingerprints.json is required; every other file is optional and missing entries become null
 ("not measured"). truebase_scores.json is cross-checked against a recomputation from the fingerprint
@@ -47,6 +50,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 DEFAULT_DATA_DIR = os.path.join(REPO, "data")
 DEFAULT_REGISTRY = os.path.join(HERE, "models.json")
+DEFAULT_PRIOR_OPENERS = os.path.join(DEFAULT_DATA_DIR, "prior_openers.json")
+# Optional per-model blocks added in bundle v6 (absent in older bundles; the site treats absence as null).
+OPTIONAL_BLOCKS = ("ci", "tailmass", "prior", "ood")
 
 SCHEMA_VERSION = 1
 MANIFEST_VERSION = 1
@@ -171,6 +177,24 @@ def tail_by_model(tail: Any) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def ci_block(row: Any) -> Optional[Dict[str, Any]]:
+    """bootstrap.json row -> {stat: {value, ci95|range, n...}}; only interval-bearing entries, None when empty."""
+    if not isinstance(row, dict):
+        return None
+    out = {k: v for k, v in row.items() if isinstance(v, dict) and "value" in v and ("ci95" in v or "range" in v)}
+    return out or None
+
+
+def prior_openers_of(adir: str, warnings: List[str]) -> Optional[Dict[str, Dict[str, str]]]:
+    """{template name: {set, text}} from the prior corpus (analysis dir first, then the repo copy)."""
+    for p in (os.path.join(adir, "prior.json"), DEFAULT_PRIOR_OPENERS):
+        if os.path.exists(p):
+            docs = load_json(p).get("tf") or []
+            return {d["name"]: {"set": d["set"], "text": d["text"]} for d in docs if "name" in d}
+    warnings.append("prior.json / data/prior_openers.json not found: reference.prior_openers omitted")
+    return None
+
+
 def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bool = False,
                  base: Optional[Dict[str, Any]] = None, base_name: str = "base bundle") -> Tuple[Dict[str, Any], List[str]]:
     """Assemble a bundle from an analysis directory. With `base` (a previous bundle), models that are not in the
@@ -187,6 +211,9 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
     tails = tail_by_model(load_optional(adir, "tail_realised.json", warnings))
     runs = load_optional(adir, "runs.json", warnings) or {}  # provenance: model path, backend, run settings, dates
     selfboot = selfboot_raw.get("models", {}) if isinstance(selfboot_raw, dict) else {}
+    boot = load_optional(adir, "bootstrap.json", warnings) or {}  # document-level bootstrap CIs
+    tailmass = load_optional(adir, "tailmass.json", warnings) or {}  # predicted tail mass, OOD genres, exact prior mass
+    prior_openers = prior_openers_of(adir, warnings)
 
     reg_models: Dict[str, Dict[str, Any]] = registry["models"]
     excluded: Dict[str, str] = registry["exclude"]
@@ -238,9 +265,13 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             "weird": weird.get(mid),
             "selfboot": selfboot.get(mid),
             "tail": tails.get(mid),
+            "ci": ci_block(boot.get(mid)),
+            "tailmass": (tailmass.get(mid) or {}).get("tail"),
+            "prior": (tailmass.get(mid) or {}).get("prior"),
+            "ood": (tailmass.get(mid) or {}).get("ood"),
             **({"provenance": clean(runs[mid])} if runs.get(mid) else {}),
         })
-        for part in ("surnames", "weird", "selfboot", "tail"):
+        for part in ("surnames", "weird", "selfboot", "tail") + OPTIONAL_BLOCKS:
             if models[-1][part] is None:
                 warnings.append(f"{mid}: no {part} data (null)")
 
@@ -278,6 +309,10 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
     if reference.get("pile_lexical") is None and base is not None:
         reference["pile_lexical"] = (base.get("reference") or {}).get("pile_lexical")
     reference.setdefault("pile_lexical", None)
+    if prior_openers is not None and any(m.get("prior") for m in models):
+        reference["prior_openers"] = prior_openers  # describes the probe, so only when some model ran it
+    elif base is not None and (base.get("reference") or {}).get("prior_openers") is not None:
+        reference["prior_openers"] = base["reference"]["prior_openers"]
     # The Census entropy over the 2,000 probed surnames is computed by the names probe itself (H_ref, the
     # same for every model); prefer it at full precision over the rounded registry constant.
     h_ref = [m["surnames"].get("H_r") for m in models if isinstance(m.get("surnames"), dict)]
@@ -338,6 +373,25 @@ def validate_bundle(b: Dict[str, Any]) -> None:
             for g, t in w.items():
                 if not (isinstance(t, list) and len(t) == 3):
                     errs.append(f"{mid}: weird[{g!r}] must be [gap, runfrac, CE]")
+        ci = m.get("ci")
+        if ci is not None:
+            for k, v in ci.items():
+                iv = (v or {}).get("ci95", (v or {}).get("range"))
+                if not (isinstance(v, dict) and "value" in v and isinstance(iv, list) and len(iv) == 2):
+                    errs.append(f"{mid}: ci[{k!r}] must be {{value, ci95|range:[lo, hi]}}")
+        tm = m.get("tailmass")
+        if tm is not None:
+            for k in (2, 3, 4):
+                if f"pred{k}" not in tm or f"real{k}" not in tm:
+                    errs.append(f"{mid}: tailmass lacks pred{k}/real{k}")
+        pr = m.get("prior")
+        if pr is not None and not isinstance(pr.get("logp"), dict):
+            errs.append(f"{mid}: prior.logp must be an object")
+        ood = m.get("ood")
+        if ood is not None:
+            for g, t in ood.items():
+                if not isinstance(t, dict) or "CE" not in t or "gap" not in t:
+                    errs.append(f"{mid}: ood[{g!r}] must carry CE and gap")
         bins = ((m.get("selfboot") or {}).get("reliability") or {}).get("bins")
         if bins is not None:
             for row in bins:
