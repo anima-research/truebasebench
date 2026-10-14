@@ -354,8 +354,9 @@ export default function Leaderboard() {
         <div className="lb-intro">
           <h1>True Base Bench</h1>
           <p className="lede">
-            How far each of <Num path="n_models" fmt="count" /> checkpoints sits from a pre-anneal pretraining base, read from its next-token
-            distributions alone. 1 = indistinguishable from a pre-anneal checkpoint. The score is distance from a true base, not capability.
+            How close each of <Num path="n_models" fmt="count" /> checkpoints is to an ideal base model — calibrated on unseen text, nothing memorised,
+            no instruction prior — read from its next-token distributions alone. 1 = indistinguishable from a pre-anneal checkpoint, the empirical
+            anchor. Base-likeness, not capability.
           </p>
           <p>
             <Link to="/methodology#score">How the score is built →</Link>

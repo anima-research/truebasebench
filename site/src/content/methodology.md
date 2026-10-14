@@ -1,10 +1,26 @@
 # Methodology
 
-True Base Bench measures how far a language-model checkpoint sits from a *pre-anneal pretraining base*: a checkpoint from the long first phase of pretraining, before the learning-rate anneal, mid-training data mixes and any post-training. Nothing here is a benchmark question. Every feature is a statistic of the model's own next-token distribution, read on fixed text that is the same for every model.
+True Base Bench measures how close a language-model checkpoint is to an *ideal base model*: one whose next-token distribution is an honest density model of text — calibrated on text it has never seen, nothing memorised beyond its training distribution, no instruction-shaped prior. The ideal is a property of the distribution, not a reference checkpoint; empirically, checkpoints from the long first phase of pretraining (before the learning-rate anneal, mid-training data mixes and any post-training. Nothing here is a benchmark question. Every feature is a statistic of the model's own next-token distribution, read on fixed text that is the same for every model.
 
 The measurement is reference-free. No model is scored against another model's outputs, and no answer is judged right or wrong. A pre-anneal checkpoint has been trained toward the data and nothing else, so on text it has never seen it expects as much surprise as it gets. Annealing on curated mixes, distillation, instruction tuning and preference optimisation each leave a different mark on that distribution, and the four sub-scores are built to tell those marks apart.
 
 Numbers quoted on this page are read live from the current data bundle; each one links to the bundle field it came from. Constants that define the method (ramp anchors, run lengths, thresholds) are marked as definitions.
+
+## Four ramps, one score {#score}
+
+Each sub-score is a clipped linear ramp. With feature value x, true-base anchor a (scores 1) and post-trained anchor b (scores 0):
+
+> sub-score = clip((x − b) / (a − b), 0, 1)
+
+The anchors, features and fallbacks:
+
+{{block:anchors}}
+
+For calib, a positive gap is clipped to 0 before the ramp, so under-confidence is not rewarded beyond a perfect score. The anchors were set from the Trinity TrueBase / Base / Preview triple and checked against the OLMo-2 ladder.
+
+**Overall = the mean of the available sub-scores.** A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these four axes". It is a distance from a true base, not a quality ranking; which end of the axis is desirable depends on what the checkpoint is for.
+
+{{explainer:score}}
 
 ## The measurement pipeline {#pipeline}
 
@@ -140,22 +156,6 @@ What the intervals cover: sampling of documents from the fixed corpus, for one m
 ## Own-sample lexical statistics {#lexical}
 
 `vh_selfboot.py` takes the first 700 words of each bare-`<bos>` sample (samples with fewer than 60% of that budget are dropped) and computes type-token ratio, hapax share, distinct 4-gram share, Zipf slope and gzip ratio, against the same statistics on Pile documents at the same budget (the reference values ship in `reference.pile_lexical`). Free-running samples at T = 1 can fall into single-glyph or short-loop attractors; these statistics show it. They are shown and not scored, because the collapse is not diagnostic: pre-anneal and annealed checkpoints both do it (see [Findings](/findings#f4)).
-
-## Four ramps, one score {#score}
-
-Each sub-score is a clipped linear ramp. With feature value x, true-base anchor a (scores 1) and post-trained anchor b (scores 0):
-
-> sub-score = clip((x − b) / (a − b), 0, 1)
-
-The anchors, features and fallbacks:
-
-{{block:anchors}}
-
-For calib, a positive gap is clipped to 0 before the ramp, so under-confidence is not rewarded beyond a perfect score. The anchors were set from the Trinity TrueBase / Base / Preview triple and checked against the OLMo-2 ladder.
-
-**Overall = the mean of the available sub-scores.** A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these four axes". It is a distance from a true base, not a quality ranking; which end of the axis is desirable depends on what the checkpoint is for.
-
-{{explainer:score}}
 
 ## Limits {#limits}
 
