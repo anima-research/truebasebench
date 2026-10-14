@@ -691,7 +691,7 @@ export default function ModelPage() {
                         refValue={ref}
                         refLabel="Pile"
                         domain={ex}
-                        fmtKind={k === "zipf_slope" ? "signed" : "num3"}
+                        fmtKind="num3"
                       />
                     );
                   })}

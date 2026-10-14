@@ -314,12 +314,12 @@ export default function Surnames({ bundle, reducedMotion }: ExplainerProps) {
       title: "Sampling agrees",
       body: (
         <>
-          Sampled lists tell the same story. Distinct share: <N m={A} k={sk("distinct")} f="pct" /> for A, <N m={B} k={sk("distinct")} f="pct" /> for
-          B. Mean −log p<sub>Census</sub> of the generated Census names: <N m={A} k={sk("surpr")} f="nats" /> and <N m={B} k={sk("surpr")} f="nats" />,
-          against <Num path="reference.census_self_entropy_all" fmt="nats1" /> for the Census itself.
+          Sampled lists tell the same story as own-sample diversity. Distinct share: <N m={A} k={sk("distinct")} f="pct" /> for A,{" "}
+          <N m={B} k={sk("distinct")} f="pct" /> for B; junk share (not a Census surname): <N m={A} k={sk("junk")} f="pct" /> and{" "}
+          <N m={B} k={sk("junk")} f="pct" />. Post-training produces fewer distinct names and fewer invented ones.
         </>
       ),
-      summary: `Mean Census surprisal of generated names: A ${tx(A, sk("surpr"), "nats")}, B ${tx(B, sk("surpr"), "nats")}.`,
+      summary: `Sampled lists: distinct share A ${tx(A, sk("distinct"), "pct")}, B ${tx(B, sk("distinct"), "pct")}.`,
     },
   ];
 
@@ -416,18 +416,6 @@ export default function Surnames({ bundle, reducedMotion }: ExplainerProps) {
                 </td>
                 <td className="n ink3">—</td>
               </tr>
-              <tr>
-                <th scope="row">mean −log p_Census, nats</th>
-                <td className="n">
-                  <N m={A} k={sk("surpr")} f="nats" />
-                </td>
-                <td className="n">
-                  <N m={B} k={sk("surpr")} f="nats" />
-                </td>
-                <td className="n">
-                  <Num path="reference.census_self_entropy_all" fmt="nats1" />
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -446,7 +434,6 @@ export default function Surnames({ bundle, reducedMotion }: ExplainerProps) {
     ["smith_plain", "pct"],
     ["distinct", "pct"],
     ["junk", "pct"],
-    ["surpr", "nats"],
   ];
   return (
     <ExplainerShell
