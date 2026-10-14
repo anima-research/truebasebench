@@ -84,15 +84,10 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
     ],
   },
   "f7": {
-    "pending": [
-      "tailBases",
-      "tailPost",
-      "priorAgrees",
-      "noise",
-    ],
-    "withOod": 3,
-    "withPrior": 3,
-    "withTail": 3,
+    "pending": [],
+    "withOod": 31,
+    "withPrior": 31,
+    "withTail": 34,
   },
 }
 `;

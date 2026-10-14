@@ -185,6 +185,35 @@ def ci_block(row: Any) -> Optional[Dict[str, Any]]:
     return out or None
 
 
+# Models whose start token was never seen in training (their tokenizer adds no BOS and the probe had to prepend one):
+# the distribution after it is not a document prior. Reported but flagged.
+PRIOR_UNRELIABLE = {
+    "kimi-k2-base": "tokenizer emits no [BOS]; after a prepended [BOS] the model puts 64% on ' .'",
+    "Kimi-K2-Instruct": "tokenizer emits no [BOS]; after a prepended [BOS] the model puts 75% on ' &'",
+}
+
+
+def prior_block(pr: Optional[dict], mid: str) -> Optional[dict]:
+    """The exact-prior block as the site consumes it. Primary masses are the whitespace-stripped ones
+    (vh_tailmass.py: trailing whitespace-only tokens of a template cost 3-7 nats in every tokenizer because
+    the following word carries its own leading space); the raw sums are kept under `raw`."""
+    if not pr:
+        return None
+    if "logp_strip" not in pr:  # older analysis file: pass through
+        return pr
+    out = {
+        "logp": pr["logp_strip"], "instr_mass": pr["instr_mass_strip"], "ctrl_mass": pr["ctrl_mass_strip"],
+        "instr_logmass": math.log(max(pr["instr_mass_strip"], 1e-300)), "ctrl_logmass": math.log(max(pr["ctrl_mass_strip"], 1e-300)),
+        "instr_argmax": pr["instr_argmax_strip"], "instr_max": pr["logp_strip"][pr["instr_argmax_strip"]],
+        "stripped": bool(pr.get("stripped")), "n_stripped": pr.get("n_stripped"),
+        "raw": {"logp": pr["logp"], "instr_mass": pr["instr_mass"], "ctrl_mass": pr["ctrl_mass"], "instr_argmax": pr["instr_argmax"]},
+        "start": pr.get("start"),
+    }
+    if mid in PRIOR_UNRELIABLE:
+        out["unreliable"] = PRIOR_UNRELIABLE[mid]
+    return out
+
+
 def prior_openers_of(adir: str, warnings: List[str]) -> Optional[Dict[str, Dict[str, str]]]:
     """{template name: {set, text}} from the prior corpus (analysis dir first, then the repo copy)."""
     for p in (os.path.join(adir, "prior.json"), DEFAULT_PRIOR_OPENERS):
@@ -267,7 +296,7 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             "tail": tails.get(mid),
             "ci": ci_block(boot.get(mid)),
             "tailmass": (tailmass.get(mid) or {}).get("tail"),
-            "prior": (tailmass.get(mid) or {}).get("prior"),
+            "prior": prior_block((tailmass.get(mid) or {}).get("prior"), mid),
             "ood": (tailmass.get(mid) or {}).get("ood"),
             **({"provenance": clean(runs[mid])} if runs.get(mid) else {}),
         })

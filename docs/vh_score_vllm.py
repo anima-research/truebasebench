@@ -31,6 +31,12 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
     t0 = time.time()
     outs = llm.generate(prompts, params, use_tqdm=False)
     base.log(f"{tag}: {len(prompts)} docs replayed in {time.time()-t0:.0f}s")
+    # the recorder writes its file when the engine core finalizes a request, which can trail generate() by seconds
+    expected = {f"{tag}_{m['doc']:04d}" for m in meta}
+    for _ in range(120):
+        if all(os.path.exists(os.path.join(tmp, v + ".npz")) for v in expected):
+            break
+        time.sleep(1)
     rec = collect(tmp, tag + "_")
     cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
     mism = 0

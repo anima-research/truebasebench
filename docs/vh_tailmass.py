@@ -28,6 +28,28 @@ def tail(z):
     return out
 
 
+def load_tok(d):
+    """the model's tokenizer (from run.json), or None if it cannot be loaded on this node"""
+    try:
+        import warnings; warnings.filterwarnings("ignore")
+        import transformers.models.gpt2.tokenization_gpt2 as _g
+        if not hasattr(_g, "bytes_to_unicode"):
+            def _b2u():
+                bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
+                cs = bs[:]; n = 0
+                for b in range(2 ** 8):
+                    if b not in bs: bs.append(b); cs.append(2 ** 8 + n); n += 1
+                return dict(zip(bs, [chr(c) for c in cs]))
+            _g.bytes_to_unicode = _b2u
+        from transformers import AutoTokenizer
+        path = json.load(open(os.path.join(d, "run.json")))["args"]["model"]
+        if not os.path.isdir(path):
+            return None
+        return AutoTokenizer.from_pretrained(path, trust_remote_code=True)
+    except Exception:
+        return None
+
+
 def logsumexp(a):
     a = np.array(a, np.float64); mx = a.max(); return float(mx + np.log(np.exp(a - mx).sum()))
 
@@ -55,22 +77,37 @@ for m in sorted(os.listdir(res)):
     if os.path.exists(p):
         z = np.load(p); docs = json.load(open(os.path.join(d, "tf_prior_docs.json")))
         names = json.load(open("/models/varentropy/corpus/prior.json"))["tf"]
-        logp, by_set = {}, {"instr": [], "ctrl": []}
+        tok = load_tok(d)
+        # trailing whitespace-only tokens of a template cost 3-7 nats in every tokenizer (the next word normally carries its
+        # own leading space), so the mass of the template *stripped* of trailing whitespace is the meaningful quantity
+        logp, logp_strip, by_set, by_set_strip, n_strip = {}, {}, {"instr": [], "ctrl": []}, {"instr": [], "ctrl": []}, {}
         for dm in docs:
             nm = names[dm["idx"]]["name"]; st = names[dm["idx"]]["set"]
-            lp = -float(z["s"][z["doc"] == dm["doc"]].astype(np.float32).sum())
-            logp[nm] = lp; by_set[st].append(lp)
+            sel = z["doc"] == dm["doc"]; s = z["s"][sel].astype(np.float32); toks = z["tok"][sel]
+            k = len(s)
+            if tok is not None:
+                while k > 1 and tok.decode([int(toks[k - 1])]).strip() == "":
+                    k -= 1
+            lp = -float(s.sum()); lps = -float(s[:k].sum())
+            logp[nm] = lp; by_set[st].append(lp); logp_strip[nm] = lps; by_set_strip[st].append(lps); n_strip[nm] = int(len(s) - k)
+        instr_names = {n["name"] for n in names if n["set"] == "instr"}
+        i0 = int(np.flatnonzero(z["pos"] == 0)[0])
         row["prior"] = {"logp": logp, "instr_logmass": logsumexp(by_set["instr"]), "ctrl_logmass": logsumexp(by_set["ctrl"]),
                         "instr_mass": float(np.exp(logsumexp(by_set["instr"]))), "ctrl_mass": float(np.exp(logsumexp(by_set["ctrl"]))),
-                        "instr_max": max(by_set["instr"]), "instr_argmax": max(logp, key=lambda k: logp[k] if names and any(n["name"] == k and n["set"] == "instr" for n in names) else -1e9)}
+                        "instr_max": max(by_set["instr"]), "instr_argmax": max(instr_names, key=lambda k: logp[k]),
+                        "logp_strip": logp_strip, "n_stripped": n_strip, "stripped": tok is not None,
+                        "instr_mass_strip": float(np.exp(logsumexp(by_set_strip["instr"]))), "ctrl_mass_strip": float(np.exp(logsumexp(by_set_strip["ctrl"]))),
+                        "instr_argmax_strip": max(instr_names, key=lambda k: logp_strip[k]),
+                        "start": {"H": float(z["H"][i0]), "p1": float(z["p1"][i0]), "top1_id": int(z["top1"][i0]),
+                                  "top1": (tok.decode([int(z["top1"][i0])]) if tok is not None else None)}}
     if row:
         out[m] = row
 os.makedirs(os.path.join(res, "analysis"), exist_ok=True)
 json.dump(out, open(os.path.join(res, "analysis", "tailmass.json"), "w"), indent=1)
-print(f"{'model':28}{'CE':>6}{'gap':>7} {'pred2':>6}{'real2':>6}{'pred3':>6}{'real3':>6}{'pred4':>6}{'real4':>6} | {'instr%':>8}{'ctrl%':>7}{'top instr':>18} | OOD gap: hex b64 js pgn dna shuf csv")
+print(f"{'model':28}{'CE':>6}{'gap':>7} {'pred2':>6}{'real2':>6}{'pred3':>6}{'real3':>6}{'pred4':>6}{'real4':>6} | {'instr%*':>8}{'ctrl%*':>7}{'top instr*':>18} | OOD gap: hex b64 js pgn dna shuf csv")
 for m, r in out.items():
     t = r.get("tail", {}); pr = r.get("prior", {}); o = r.get("ood", {})
     tl = f"{t.get('CE', float('nan')):6.2f}{t.get('gap', float('nan')):7.3f} " + "".join(f"{t.get(f'pred{k}', float('nan')):6.3f}{t.get(f'real{k}', float('nan')):6.3f}" for k in (2, 3, 4)) if t else " " * 50
-    pm = f"{100*pr['instr_mass']:8.3f}{100*pr['ctrl_mass']:7.1f}{pr['instr_argmax'][:18]:>18}" if pr else " " * 33
+    pm = f"{100*pr['instr_mass_strip']:8.3f}{100*pr['ctrl_mass_strip']:7.1f}{pr['instr_argmax_strip'][:18]:>18}" if pr else " " * 33
     og = " ".join(f"{o[s]['gap']:+.2f}" for s in ["hexdump", "base64", "minified_js", "chess_pgn", "dna_fasta", "shuffled_english", "random_csv"] if s in o)
     print(f"{m[:28]:28}{tl} | {pm} | {og}")
