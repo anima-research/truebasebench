@@ -153,7 +153,7 @@ The anchors, features and fallbacks:
 
 For calib, a positive gap is clipped to 0 before the ramp, so under-confidence is not rewarded beyond a perfect score. The anchors were set from the Trinity TrueBase / Base / Preview triple and checked against the OLMo-2 ladder.
 
-**Overall = the mean of the available sub-scores.** A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these four axes". It is a distance, not a quality ranking: higher is not better.
+**Overall = the mean of the available sub-scores.** A sub-score is unavailable when its feature and its fallback are both missing; the leaderboard shows how many sub-scores went into each overall score. A score of 1 means "indistinguishable from a pre-anneal checkpoint on these four axes". It is a distance from a true base, not a quality ranking; which end of the axis is desirable depends on what the checkpoint is for.
 
 {{explainer:score}}
 

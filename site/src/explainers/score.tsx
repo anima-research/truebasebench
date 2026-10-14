@@ -262,7 +262,7 @@ export default function Score({ bundle, reducedMotion }: ExplainerProps) {
       body: (
         <>
           The sub-scores slide end to end, then compress by 1/n into the overall bar: <N m={P} k="score" f="score" />. 1 means indistinguishable from
-          a pre-anneal checkpoint; higher is not better. A missing sub-score is left out and the denominator shrinks.
+          a pre-anneal checkpoint — a distance, not a quality ranking. A missing sub-score is left out and the denominator shrinks.
         </>
       ),
       summary: `Overall ${fmt(P.score, "score")}, the mean of the available sub-scores.`,
