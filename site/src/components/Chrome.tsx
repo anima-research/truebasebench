@@ -50,8 +50,8 @@ export function ThemeSwitch() {
 
 const NAV = [
   { to: "/", label: "Leaderboard", end: true },
-  { to: "/findings", label: "Findings" },
   { to: "/methodology", label: "Methodology" },
+  { to: "/findings", label: "Findings" },
   { to: "/measure", label: "Measure your model" },
 ];
 

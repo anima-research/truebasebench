@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { createReadStream, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readdirSync, copyFileSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,8 +33,29 @@ function repoData(): Plugin {
   };
 }
 
+/** Site identity (name, canonical URL, description) shared by index.html, src/lib/config.ts and tools/og.mjs. */
+const SITE = JSON.parse(readFileSync(resolve(here, "site.config.json"), "utf8")) as { name: string; url: string; description: string };
+
+/** Fills __SITE_URL__ / __SITE_NAME__ / __SITE_DESCRIPTION__ in index.html (the social-sharing meta tags) before Vite
+ * parses the HTML (order "pre": Vite decodes href/src attributes, so a %-style placeholder would fail there). */
+function siteMeta(): Plugin {
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  return {
+    name: "tbb-site-meta",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        return html
+          .replace(/__SITE_URL__/g, esc(SITE.url.replace(/\/+$/, "")))
+          .replace(/__SITE_NAME__/g, esc(SITE.name))
+          .replace(/__SITE_DESCRIPTION__/g, esc(SITE.description));
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), repoData()],
+  plugins: [react(), repoData(), siteMeta()],
   server: { port: 5173 },
   build: { target: "es2020", sourcemap: false },
 });

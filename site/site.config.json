@@ -1,0 +1,6 @@
+{
+  "name": "True Base Bench",
+  "url": "https://basebench-production.up.railway.app",
+  "description": "How far each language-model checkpoint sits from a pre-anneal pretraining base, measured from its next-token distribution on fixed text. By Anima Labs.",
+  "_note": "switch url to https://basebench.animalabs.ai once the custom domain is live, then `npm run og`"
+}

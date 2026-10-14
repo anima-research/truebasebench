@@ -36,6 +36,15 @@ python -m unittest discover -s tools/tests -v      # export round trip, upload p
 node tools/validate_data.mjs                       # every bundle + manifest against the site's schemas (needs site/node_modules)
 ```
 
+
+### Social-sharing image and meta tags
+
+`site/index.html` carries the Open Graph / Twitter card tags; the canonical URL, site name and description live in `site/site.config.json` (one place; `vite.config.ts` fills them into the HTML at build time and `src/lib/config.ts` exports them). The card image `site/public/og.png` (1200×630) and `og-square.png` (1200×1200) are rendered from the current data bundle, in the site's own type and palette, by `tools/og.mjs` (`@resvg/resvg-js`, a devDependency; fonts in `tools/og/fonts` are static TTFs converted from the `@fontsource` packages). Regenerate after a new bundle or a URL change:
+
+```bash
+cd site && npm run og          # writes site/public/og.png and og-square.png from data/<manifest.latest>
+```
+
 To run the production image locally (needs Docker):
 
 ```bash
