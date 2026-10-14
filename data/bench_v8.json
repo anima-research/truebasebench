@@ -1509,7 +1509,7 @@
   },
   {
    "id": "DeepSeek-V4-Pro-Base",
-   "family": "DeepSeek V4 Pro",
+   "family": "DeepSeek V4 Pro 1.6T-A78B",
    "stage": "base",
    "label": "Base (FP4-converted)",
    "order": 0,
@@ -8197,7 +8197,7 @@
   },
   {
    "id": "DeepSeek-V4-Flash-Base-fp4",
-   "family": "DeepSeek V4 Flash",
+   "family": "DeepSeek V4 Flash 292B-A22B",
    "stage": "base",
    "label": "Base (FP4 control)",
    "order": 1,
@@ -16230,7 +16230,7 @@
   },
   {
    "id": "DeepSeek-V4-Flash-Base",
-   "family": "DeepSeek V4 Flash",
+   "family": "DeepSeek V4 Flash 292B-A22B",
    "stage": "base",
    "label": "Base",
    "order": 0,
@@ -31008,7 +31008,7 @@
   },
   {
    "id": "DeepSeek-V4-Flash",
-   "family": "DeepSeek V4 Flash",
+   "family": "DeepSeek V4 Flash 292B-A22B",
    "stage": "post-trained",
    "label": "Instruct",
    "order": 2,
@@ -32353,7 +32353,7 @@
   },
   {
    "id": "DeepSeek-V4-Pro",
-   "family": "DeepSeek V4 Pro",
+   "family": "DeepSeek V4 Pro 1.6T-A78B",
    "stage": "post-trained",
    "label": "Instruct (0813)",
    "order": 1,

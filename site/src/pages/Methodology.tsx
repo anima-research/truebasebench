@@ -14,6 +14,8 @@ import { fp, path } from "../data/bundle";
 import type { MethodologyValue } from "../content/slots";
 import type { Fmt } from "../lib/numfmt";
 
+const SECTION_OF: Record<string, string> = { calib: "#calibration-gap", spread: "#calibration-gap", memo: "#verbatim-runs", prior: "#prior" };
+
 const WHY: Record<string, string> = {
   calib: "pre-anneal checkpoints sit near 0; post-training pushes the gap negative",
   spread: "pre-anneal checkpoints are near-zero in every post-cutoff domain",
@@ -54,7 +56,9 @@ function AnchorsTable() {
                 {SUB_META[k].name}
               </th>
               <td className="small">{isScored(bundle, k) ? "yes" : <span className="probe-tag">probe</span>}</td>
-              <td className="mono small">{SOURCES[k].join(" → ")}</td>
+              <td className="mono small">
+                <a href={SECTION_OF[k]}>{SOURCES[k].join(" → ")}</a>
+              </td>
               <td className="n">
                 <Num path={`method.RAMPS.${k}[0]`} value={ramps[k]?.[0] ?? null} fmt={f(k)} def unit={false} />
               </td>

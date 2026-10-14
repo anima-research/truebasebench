@@ -144,6 +144,7 @@ def main():
     ap.add_argument("--names-probe", default=None); ap.add_argument("--names-topk", type=int, default=2000)
     ap.add_argument("--names-lists", type=int, default=16); ap.add_argument("--names-steps", type=int, default=400)
     ap.add_argument("--max-num-batched-tokens", type=int, default=None)
+    ap.add_argument("--cpu-offload-gb", type=float, default=0.0, help="vLLM cpu_offload_gb per GPU (weights streamed from host RAM; for checkpoints that do not fit)")
     ap.add_argument("--lenient", action="store_true", help="tolerate missing recorder files / forced-token mismatches (default: fail the run)")
     args = ap.parse_args()
 
@@ -171,7 +172,8 @@ def main():
     llm = LLM(model=args.model, tensor_parallel_size=args.tp, max_model_len=args.max_model_len, gpu_memory_utilization=args.gpu_mem,
               max_num_seqs=args.max_num_seqs, logits_processors=["vh_lp:VHRecorder"], trust_remote_code=args.trust_remote_code,
               seed=args.seed, enable_prefix_caching=False, enforce_eager=args.enforce_eager,
-              **({"max_num_batched_tokens": args.max_num_batched_tokens} if args.max_num_batched_tokens else {}))
+              **({"max_num_batched_tokens": args.max_num_batched_tokens} if args.max_num_batched_tokens else {}),
+              **({"cpu_offload_gb": args.cpu_offload_gb} if args.cpu_offload_gb else {}))
     base.log(f"vLLM engine up in {time.time()-t0:.0f}s")
     json.dump({"args": vars(args), "backend": "vllm", "vocab": tok.vocab_size, "bos": tok.bos_token_id, "eos": tok.eos_token_id,
                "load_s": time.time() - t0}, open(os.path.join(out_dir, "run.json"), "w"), indent=1)

@@ -8,6 +8,8 @@ Numbers quoted on this page are read live from the current data bundle; each one
 
 ## Three ramps, one score {#score}
 
+The score is a function of three features, each defined in its own section below: the [calibration gap](#calibration-gap) on post-cutoff text, its [spread across domains](#calibration-gap), and the [instruction-shaped prior](#prior) of the model's own samples. Two further measurements, [verbatim runs](#verbatim-runs) and [the surname test](#surnames), are [validation probes](#probes): shown beside the score, not part of it. This section only says how the three features become one number; read it first and come back to it after the definitions, or skip ahead to the [pipeline](#pipeline).
+
 Each sub-score is a clipped linear ramp. With feature value x, true-base anchor a (scores 1) and post-trained anchor b (scores 0):
 
 > sub-score = clip((x − b) / (a − b), 0, 1)
