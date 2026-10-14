@@ -9,4 +9,11 @@ Decided with Antra after the external review (`docs/reviews/codex-gpt6-astra-202
 5. **Fitted anchors** — only after 4; isotonic/ordinal fit on held-out families; keep the four-feature profile as the primary display.
 6. Size vs. recipe check for the −0.02…−0.03 cluster of large bases; frank note that varentropy is reported-only.
 
-Deployment: Railway, public hostname **basebench.animalabs.ai**; data on OVH Object Storage; repository github.com/anima-research/truebasebench.
+## Deployment state (2026-10-13)
+
+- Repository: github.com/anima-research/truebasebench (public, `main`).
+- Railway project `truebasebench` (workspace antra-tess, id b162bab3-7509-4bdf-8227-621c94665705), service `basebench`, first deploy pushed from the CLI (`railway up`), Railway domain https://basebench-production.up.railway.app. `VITE_DATA_BASE_URL` is empty, so the site serves the bundle copy in `data/`.
+- Owner steps left (the CLI token is not allowed to do these):
+  1. Railway dashboard → service `basebench` → Settings → Source: connect the GitHub repo `anima-research/truebasebench` (installs the Railway GitHub App on the org) so pushes to `main` deploy.
+  2. Settings → Networking → Custom Domain: `basebench.animalabs.ai`; Railway shows the CNAME target. DNS for animalabs.ai is at Spaceship (launch1/launch2.spaceship.net): add `CNAME basebench → <target>.up.railway.app`.
+  3. OVH Object Storage bucket + keys (README "OVH Object Storage"); set `VITE_DATA_BASE_URL` on the service and the `OVH_*` secrets on the GitHub repo for the upload workflow. Until then the repo copy is served, which is fine.
