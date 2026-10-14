@@ -280,7 +280,7 @@ export default function Findings() {
     ),
     f6: (
       <>
-        Post-training raises the rate of real tokens the model found “impossible” (s &gt; 10 nats) by{" "}
+        Post-training thickens the tail of mistakes. On post-cutoff text, real tokens the model rated near-impossible (s &gt; 10 nats) become{" "}
         {rLo && rHi ? (
           <>
             <Num path={`${path(rLo.post, 'tail.tf_fresh["s>10"]')} / ${path(rLo.base, 'tail.tf_fresh["s>10"]')} − 1`} value={rLo.rise} fmt="pct" derived={`${rLo.post.label} vs ${rLo.base.label}`} />–
@@ -289,7 +289,7 @@ export default function Findings() {
         ) : (
           "—"
         )}{" "}
-        and makes the model{" "}
+        more common than in the paired base, and at positions where the model is uncertain (H &gt; 4) it becomes{" "}
         {gLo && gHi ? (
           <>
             <Num path={`${path(gLo.base, "tail.tf_fresh.gap_hiH")} − ${path(gLo.post, "tail.tf_fresh.gap_hiH")}`} value={-gLo.hiDelta!} fmt="num2" derived={`${gLo.post.label} vs ${gLo.base.label}`} />–
@@ -298,47 +298,52 @@ export default function Findings() {
         ) : (
           "—"
         )}{" "}
-        more over-confident exactly where it is uncertain (H &gt; 4)
-        {f6.gapExceptions.length > 0 && (
-          <>
-            , except{" "}
-            {joinList(
-              f6.gapExceptions.map((p) => (
-                <span key={p.post.id}>
-                  {p.post.family} {p.post.label}, <N m={p.post} k="tail.tf_fresh.gap_hiH" f="signed" />
-                  {p.hiDelta !== null && (
-                    <>
-                      {" "}
-                      (<Num path={`${path(p.post, "tail.tf_fresh.gap_hiH")} − ${path(p.base, "tail.tf_fresh.gap_hiH")}`} value={p.hiDelta} fmt="signed" derived={`change vs ${p.base.label}`} /> vs
-                      its base)
-                    </>
-                  )}
-                </span>
-              )),
-              "; ",
-            )}
-          </>
-        )}
-        . Bases sit near zero (median{" "}
+        more over-confident. Bases sit at zero there (median{" "}
         {isNum(f6.baseHiMedian) ? (
           <Num path="median(models[stage≠post-trained].tail.tf_fresh.gap_hiH)" value={f6.baseHiMedian} fmt="signed" derived="median over pre-anneal, anneal and base" />
         ) : (
           "—"
         )}
-        {f6.baseHiExceptions.length > 0 && (
-          <>
-            ; except{" "}
-            {joinList(
-              f6.baseHiExceptions.map((x) => (
-                <span key={x.model.id}>
-                  {x.model.family} {x.model.label}, <N m={x.model} k="tail.tf_fresh.gap_hiH" f="signed" />
-                </span>
-              )),
-              "; ",
-            )}
-          </>
-        )}
         ).
+        {(f6.gapExceptions.length > 0 || f6.baseHiExceptions.length > 0) && (
+          <span className="finding-exceptions ink3 small">
+            <br />
+            {f6.gapExceptions.length > 0 && (
+              <>
+                Pairs that do not follow the H &gt; 4 pattern:{" "}
+                {joinList(
+                  f6.gapExceptions.map((p) => (
+                    <span key={p.post.id}>
+                      {p.post.family} {p.post.label} <N m={p.post} k="tail.tf_fresh.gap_hiH" f="signed" />
+                      {p.hiDelta !== null && (
+                        <>
+                          {" "}
+                          (<Num path={`${path(p.post, "tail.tf_fresh.gap_hiH")} − ${path(p.base, "tail.tf_fresh.gap_hiH")}`} value={p.hiDelta} fmt="signed" derived={`change vs ${p.base.label}`} /> vs base)
+                        </>
+                      )}
+                    </span>
+                  )),
+                  "; ",
+                )}
+                .{" "}
+              </>
+            )}
+            {f6.baseHiExceptions.length > 0 && (
+              <>
+                Base outliers:{" "}
+                {joinList(
+                  f6.baseHiExceptions.map((x) => (
+                    <span key={x.model.id}>
+                      {x.model.family} {x.model.label} <N m={x.model} k="tail.tf_fresh.gap_hiH" f="signed" />
+                    </span>
+                  )),
+                  "; ",
+                )}
+                .
+              </>
+            )}
+          </span>
+        )}
       </>
     ),
   };
