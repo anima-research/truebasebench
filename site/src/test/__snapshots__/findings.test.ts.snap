@@ -58,13 +58,13 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
       0.123,
       0.432,
     ],
-    "sharpen": 13,
+    "sharpen": 14,
   },
   "f6": {
     "baseHiExceptions": [
       "gemma-2-9b",
     ],
-    "baseHiMedian": -0.028,
+    "baseHiMedian": -0.031,
     "gapExceptions": [
       "Trinity-Large-Preview",
       "Llama-3.1-70B-Instruct-new",
@@ -74,7 +74,7 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
       0.322,
       1.111,
     ],
-    "pairs": 14,
+    "pairs": 15,
     "rateExceptions": [
       "Trinity-Large-Preview",
     ],
@@ -85,9 +85,9 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
   },
   "f7": {
     "pending": [],
-    "withOod": 37,
-    "withPrior": 37,
-    "withTail": 37,
+    "withOod": 38,
+    "withPrior": 38,
+    "withTail": 38,
   },
 }
 `;
