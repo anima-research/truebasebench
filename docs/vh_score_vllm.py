@@ -39,9 +39,11 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
         if r is None:
             continue
         n = len(r["H"])
-        gen = list(o.outputs[0].token_ids)
-        k = min(n, len(gen), len(r["tok"]))
-        if gen[:k] != list(r["tok"][:k]):
+        gen = [int(x) for x in o.outputs[0].token_ids]
+        f = forces[m["doc"]]
+        # integrity = vLLM really emitted the forced sequence and the recorder saw one step per forced token
+        # (the recorder's own `tok` column can miss the final token: it is finalized before vLLM appends it)
+        if n != len(f) or gen[:len(f)] != f:
             mism += 1
         for k in ["H", "V", "s", "p1", "top1", "rank", "m2", "m3", "m4"]:
             cols[k].append(r[k][:n])
