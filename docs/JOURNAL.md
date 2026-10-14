@@ -121,3 +121,14 @@ Wide where expected: Wikipedia verbatim share at 60 docs (Llama-405B +0.224 [+0.
 **Site.** Findings page rebuilt to the Methodology standard (12-agent workflow): per-finding sections with standfirst, margin "how this is checked", labelled plates, look-at lists, CI whiskers, a new F7. "Four ramps, one score" opens Methodology; copy says the ideal is a property of the distribution and pre-anneal checkpoints are its empirical anchor; Open Graph card from the bundle; links to animalabs.ai; live at basebench.animalabs.ai. Score-v1 presentation (three ramps, probes plate) in progress.
 
 **NLA cleanup.** 4.4 TB of optimizer state removed from BeeGFS with Antra's OK (SFT states; GRPO non-final iterations; final-iteration GRPO states kept) to make room for Pro-Base.
+
+## 2026-10-14 (midday) — DeepSeek-V4-Pro-Base
+
+Converted (FP8 experts → MXFP4, 1.6 TB → 760 GB, 12.0% relative weight error per expert matrix, same as the Flash control) and measured in full on 8×B200. Read with the +0.013 nat FP4 offset from the Flash-Base control:
+
+- calibration gap **−0.004 [−0.008, +0.001]** as measured, ≈ −0.017 at FP8 — in the band of the other large released bases (V3-Base −0.021, K2-Base −0.016, Flash-Base −0.029); domain spread 0.013; ECE 0.0078; tail 0.0271 / 0.0275 at 10⁻³ (ratio 1.02).
+- **Wikipedia verbatim 11.1%** — just under the 12% flag, "elevated". V4-Pro chat's 12.7% recitation therefore comes from the base's anneal, not from post-training.
+- prior: 0.23% on instruction openers, 45% of starts on "#"/newline (the DeepSeek pipeline signature again); few-shot surname KL 0.24, described 0.74.
+- score v1 0.961, rank 2 of 38 (bundle v8); the rank is helped by the FP4 offset — with it removed the gap would score ~0.83 on the calib ramp and the overall ~0.91, still in the top group.
+
+Verdict: the cleanest large released base on the distribution statistics, with an anneal that recites Wikipedia at nearly flag level. Cost: 4.4 TB of NLA optimizer states freed, ~5 h of download, 25 min of conversion, ~1.5 h of measurement.
