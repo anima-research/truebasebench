@@ -214,7 +214,7 @@ export default function ModelPage() {
   const s = model.surnames;
   const effMax = isNum(bundle.reference.census_entropy_top2000) ? Math.exp(bundle.reference.census_entropy_top2000) : null;
   const P = (k: string) => path(model, k);
-  const lexKeys = ["ttr", "hapax", "distinct4", "zipf_slope", "gzip_ratio"] as const;
+  const lexKeys = ["ttr", "hapax", "distinct4"] as const;  // zipf_slope and gzip_ratio stay in the bundle only (no stage signal)
   const topNames = topNamesOf(model, bundle);
 
   return (
@@ -746,7 +746,6 @@ function SurnameStats({ model, compare }: { model: Model; compare: Model[] }) {
     { label: "p(Smith) as item 1, plain frame (when Smith is the top name)", key: "smith_plain", kind: "pct" },
     { label: "sampled: junk share (not a Census surname)", key: "junk", kind: "pct" },
     { label: "sampled: distinct share", key: "distinct", kind: "pct" },
-    { label: "sampled: mean −log p_Census", key: "surpr", kind: "nats" },
   ];
   return (
     <div className="tbl-scroll">
@@ -788,8 +787,6 @@ function SurnameStats({ model, compare }: { model: Model; compare: Model[] }) {
               <td className="n">
                 {r.ref ? (
                   <Num path={path(model, `surnames.${r.ref.path}`)} fmt={r.ref.kind} />
-                ) : r.key === "surpr" ? (
-                  <Num path="reference.census_self_entropy_all" fmt="nats1" />
                 ) : (
                   <span className="ink3">—</span>
                 )}
