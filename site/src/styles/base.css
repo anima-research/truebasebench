@@ -110,7 +110,7 @@ h3 { font-size: 17px; line-height: 24px; font-weight: 600; }
 .topbar .spacer { flex: 1; }
 .stamp { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
 .btn.menu-btn { display: none; }
-@media (max-width: 1099px) { .topbar .stamp { display: none; } .byline { display: none; } .topbar .container { flex-wrap: wrap; gap: 8px 12px; } }
+@media (max-width: 1119px) { .topbar .stamp { display: none; } .byline { display: none; } .topbar .container { flex-wrap: wrap; gap: 8px 12px; } }
 @media (max-width: 719px) {
   .topbar .container { flex-wrap: wrap; gap: 8px 12px; }
   .btn.menu-btn { display: inline-flex; margin-left: auto; }
