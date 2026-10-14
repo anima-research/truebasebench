@@ -21,7 +21,7 @@ RUN npm ci --no-audit --no-fund
 COPY data /app/data
 # docs/ holds the measurement scripts; the tests check the site's method constants against them.
 COPY docs /app/docs
-COPY site/index.html site/tsconfig.json site/vite.config.ts site/vitest.config.ts ./
+COPY site/index.html site/tsconfig.json site/vite.config.ts site/vitest.config.ts site/site.config.json ./
 COPY site/public ./public
 COPY site/src ./src
 COPY tools/csp.mjs /app/tools/csp.mjs
