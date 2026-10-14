@@ -1,6 +1,6 @@
 # True Base Bench — site specification (v1)
 
-**Owner:** Anima Labs (Antra Tessera). Public, permanent, maintained benchmark site. Attribution: "by Anima Labs" in header/footer; link to https://github.com/anima-research. No other branding.
+**Owner:** Anima Labs (Antra Tessera). Public, permanent, maintained benchmark site. Attribution: "by Anima Labs" in header/footer; link to https://animalabs.ai; repository link to https://github.com/anima-research/truebasebench. No other branding.
 
 ## What the bench measures
 

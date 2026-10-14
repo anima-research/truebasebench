@@ -1,6 +1,6 @@
 # About
 
-True Base Bench is a public, permanent benchmark that measures how close a language-model checkpoint is to an ideal base model: one whose next-token distribution is an honest density model of text — calibrated on text it has never seen, with nothing memorised beyond its training distribution and no instruction-shaped prior. No reference checkpoint defines that ideal; it is a property of the distribution. Empirically, checkpoints from the long constant-learning-rate phase of pretraining (before the anneal, mid-training mixes and any post-training) sit at it, which is why they set the anchors of the score. It is built and maintained by [Anima Labs](https://github.com/anima-research).
+True Base Bench is a public, permanent benchmark that measures how close a language-model checkpoint is to an ideal base model: one whose next-token distribution is an honest density model of text — calibrated on text it has never seen, with nothing memorised beyond its training distribution and no instruction-shaped prior. No reference checkpoint defines that ideal; it is a property of the distribution. Empirically, checkpoints from the long constant-learning-rate phase of pretraining (before the anneal, mid-training mixes and any post-training) sit at it, which is why they set the anchors of the score. It is built and maintained by [Anima Labs](https://animalabs.ai).
 
 ## What it is for {#purpose}
 
@@ -25,7 +25,7 @@ The bench is maintained by Anima Labs. New checkpoints are added through pull re
 
 The post-cutoff corpus has a date. Once checkpoints trained on data from after that date appear, the corpus has to be replaced by a newer one, in a new bundle version, with the existing models re-measured on it.
 
-Corrections, questions and submissions go to the issue tracker of the repository at [github.com/anima-research](https://github.com/anima-research).
+Corrections, questions and submissions go to the issue tracker of the repository at [github.com/anima-research/truebasebench](https://github.com/anima-research/truebasebench).
 
 ## Citation {#citation}
 

@@ -4,7 +4,8 @@ import site from "../../site.config.json";
 export const SITE_URL: string = site.url.replace(/\/+$/, "");
 export const SITE_NAME: string = site.name;
 export const SITE_DESCRIPTION: string = site.description;
-export const ORG_URL = "https://github.com/anima-research";
+export const ORG_URL = "https://animalabs.ai";
+export const REPO_URL = "https://github.com/anima-research/truebasebench";
 /** Optional: repository URL used to link script names (e.g. https://github.com/<org>/<repo>). */
 export const SOURCE_REPO_URL = ((import.meta.env?.VITE_SOURCE_REPO_URL as string | undefined) ?? "").replace(/\/+$/, "");
 export function docsLink(file: string): string | null {

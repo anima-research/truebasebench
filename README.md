@@ -1,6 +1,6 @@
 # True Base Bench
 
-True Base Bench, by [Anima Labs](https://github.com/anima-research), measures how far a language-model checkpoint sits from a *pre-anneal pretraining base*: the "true base" before annealing, distillation or post-training reshaped its next-token distribution. It asks no benchmark questions. Every checkpoint is run through the same scripts on the same fixed text (Pile documents, post-cutoff documents, rare-genre documents, its own free-running samples and a surname-distribution test), and four statistics of the full next-token distribution are turned into sub-scores: calibration on unseen text, how far miscalibration spreads across genres, verbatim recitation of Wikipedia, and instruction markers in the bare-`<bos>` prior. The overall score is their mean. [docs/SPEC.md](docs/SPEC.md) defines the measurements and the data contract.
+True Base Bench, by [Anima Labs](https://animalabs.ai), measures how close a language-model checkpoint is to an *ideal base model* — calibrated on unseen text, nothing memorised, no instruction prior — with pre-anneal pretraining checkpoints as the empirical anchor: the "true base" before annealing, distillation or post-training reshaped its next-token distribution. It asks no benchmark questions. Every checkpoint is run through the same scripts on the same fixed text (Pile documents, post-cutoff documents, rare-genre documents, its own free-running samples and a surname-distribution test), and four statistics of the full next-token distribution are turned into sub-scores: calibration on unseen text, how far miscalibration spreads across genres, verbatim recitation of Wikipedia, and instruction markers in the bare-`<bos>` prior. The overall score is their mean. [docs/SPEC.md](docs/SPEC.md) defines the measurements and the data contract.
 
 ```
 docs/            spec, design notes and the measurement scripts (vh_*.py)
@@ -184,4 +184,4 @@ python tools/upload_data.py --corpus-dir /path/to/corpus --corpus-only --verify
 
 ## Attribution
 
-True Base Bench is built and maintained by [Anima Labs](https://github.com/anima-research).
+True Base Bench is built and maintained by [Anima Labs](https://animalabs.ai). Source: [github.com/anima-research/truebasebench](https://github.com/anima-research/truebasebench).

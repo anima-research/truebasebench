@@ -3,7 +3,7 @@ import source from "../content/about.md?raw";
 import { ReadingPage } from "../components/ReadingPage";
 import { useLoaded } from "../data/BundleContext";
 import { CopyButton } from "../components/CopyButton";
-import { ORG_URL } from "../lib/config";
+import { SITE_URL } from "../lib/config";
 
 /** BibTeX entry for the loaded bundle: version and year come from the bundle, never typed. */
 export function citationFor(file: string, generated: string | null | undefined): string {
@@ -14,7 +14,7 @@ export function citationFor(file: string, generated: string | null | undefined):
     "  title        = {True Base Bench: a reference-free measure of distance from a pre-anneal pretraining base},",
     "  author       = {{Anima Labs}},",
     `  year         = {${year}},`,
-    `  howpublished = {\\url{${ORG_URL}}},`,
+    `  howpublished = {\\url{${SITE_URL}}},`,
     `  note         = {Data bundle ${version.replace(/_/g, "\\_")}${generated ? `, generated ${generated}` : ""}}`,
     "}",
   ].join("\n");
