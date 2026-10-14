@@ -6,7 +6,7 @@ True Base Bench is a public, permanent benchmark that measures how far a languag
 
 "Base model" has stopped meaning one thing. Released bases are often annealed on curated, instruction-heavy or synthetic mixes, distilled from a larger model, or both. For research that depends on a model trained toward the data and nothing else (interpretability, studies of the pretraining distribution, simulation, uses of base-model sampling that rely on its full diversity), the label on the checkpoint is not enough.
 
-The bench gives that question a measurement. It does not score capability, and a higher score is not better in general: a score of 1 means the checkpoint is indistinguishable from a pre-anneal base on the four features measured, nothing more. Whether that is what you want depends on what you are using the model for.
+The bench gives that question a measurement. It does not score capability; it scores distance from a pre-anneal base, and which end of that axis you want depends on what you are using the checkpoint for. A score of 1 means the checkpoint is indistinguishable from a pre-anneal base on the four features measured, nothing more. Whether that is what you want depends on what you are using the model for.
 
 ## How it works, briefly {#how}
 

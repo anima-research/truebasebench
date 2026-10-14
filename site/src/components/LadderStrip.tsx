@@ -46,7 +46,7 @@ export function LadderStrip({
         const x = linear([0, 1], [left, w - right]);
         const top = 4;
         const rowY = (i: number) => top + i * (ROW + GUTTER) + ROW / 2;
-        const title = phone ? "overall score (1 = pre-anneal-like; not 'better')" : "overall score (1 = indistinguishable from a pre-anneal checkpoint; not 'better')";
+        const title = phone ? "overall score (1 = pre-anneal-like)" : "overall score (1 = indistinguishable from a pre-anneal checkpoint; base-likeness, not capability)";
         const height = top + stageOrder.length * (ROW + GUTTER) + 44 + xTitleExtra(title, w - right - left);
         const axisY = top + stageOrder.length * (ROW + GUTTER) + 6;
         // Label anchored so it stays inside [left, w]: end-anchored near the right edge, start-anchored near the left.

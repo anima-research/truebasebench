@@ -250,7 +250,7 @@ export default function ModelPage() {
               </span>
             </div>
             <p className="small ink3" style={{ marginTop: 6 }}>
-              1 = indistinguishable from a pre-anneal checkpoint; higher is not “better”.
+              1 = indistinguishable from a pre-anneal checkpoint. The score is distance from a true base, not capability.
             </p>
             <ul className="chiprow" aria-label="Sections">
               {SECTIONS.map((x) => (

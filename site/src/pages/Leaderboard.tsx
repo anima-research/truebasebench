@@ -355,7 +355,7 @@ export default function Leaderboard() {
           <h1>True Base Bench</h1>
           <p className="lede">
             How far each of <Num path="n_models" fmt="count" /> checkpoints sits from a pre-anneal pretraining base, read from its next-token
-            distributions alone. 1 = indistinguishable from a pre-anneal checkpoint; higher is not “better”.
+            distributions alone. 1 = indistinguishable from a pre-anneal checkpoint. The score is distance from a true base, not capability.
           </p>
           <p>
             <Link to="/methodology#score">How the score is built →</Link>
@@ -495,7 +495,7 @@ export default function Leaderboard() {
       {view === "ranked" ? (
         <table className="tbl lb-table">
           <caption className="visually-hidden">
-            Checkpoints ranked by overall score (higher is not better: 1 means indistinguishable from a pre-anneal checkpoint)
+            Checkpoints ranked by overall score (1 = indistinguishable from a pre-anneal checkpoint; the score is distance from a true base, not capability)
           </caption>
           <thead>
             <tr>
@@ -511,8 +511,8 @@ export default function Leaderboard() {
               <SortTh k="size" className="c-size">
                 Size
               </SortTh>
-              <SortTh k="overall" className="c-overall" title="Overall = mean of available sub-scores. 1 = indistinguishable from a pre-anneal checkpoint; higher is not better.">
-                Overall <span className="ink3 small">(not “better”)</span>
+              <SortTh k="overall" className="c-overall" title="Overall = mean of available sub-scores. 1 = indistinguishable from a pre-anneal checkpoint; distance from a true base, not capability.">
+                Overall <span className="ink3 small">(base-likeness)</span>
               </SortTh>
               {SUB_KEYS.map((k) => (
                 <SortTh key={k} k={k} className="c-sub" title={headerTitle(k)}>
