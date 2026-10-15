@@ -3,9 +3,9 @@ import source from "../content/methodology.md?raw";
 import { ReadingPage } from "../components/ReadingPage";
 import { useBundle } from "../data/BundleContext";
 import { RAMPS, SOURCES, SUB_META } from "../data/method";
-import { SUB_KEYS } from "../data/types";
+import { SUB_KEYS, type Model } from "../data/types";
 import { Num } from "../components/Num";
-import { preAnnealBand, quantControl, recitationAnchors, recitedList, specimenPair } from "../data/derive";
+import { preAnnealBand, quantControl, quantControls, recitationAnchors, recitedList, specimenPair } from "../data/derive";
 import { isScored, scoredKeys } from "../data/scoring";
 import { ProbePanels, probeStat } from "../charts/ProbeCharts";
 import { Plate } from "../components/Plate";
@@ -22,6 +22,51 @@ const WHY: Record<string, string> = {
   memo: "annealing on up-weighted sources raises the share of Wikipedia recited verbatim",
   prior: "instruction data in the mix shows up as chat markers in bare-BOS samples",
 };
+
+function QuantPairsTable() {
+  const bundle = useBundle();
+  const pairs = quantControls(bundle);
+  if (!pairs.length) return <p className="pending">No quantisation-control pair in this bundle.</p>;
+  const g = (m: Model) => fp(m, "F_calib_gap");
+  const r3 = (m: Model) => (m.tailmass?.ratio3 ?? null) as number | null;
+  return (
+    <div className="tbl-scroll">
+      <table className="tbl">
+        <caption>Quantisation controls: the same checkpoint at its released precision and with experts re-quantised to MXFP4.</caption>
+        <thead>
+          <tr>
+            <th scope="col">family</th>
+            <th scope="col" className="n nw">gap, release</th>
+            <th scope="col" className="n nw">gap, MXFP4</th>
+            <th scope="col" className="n nw">offset</th>
+            <th scope="col" className="n nw">tail ratio 10⁻³, release → MXFP4</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pairs.map(({ control, release }) => (
+            <tr key={control.id}>
+              <th scope="row" style={{ background: "none" }}>{release.family}</th>
+              <td className="n"><Num path={path(release, "fingerprint.F_calib_gap")} fmt="gap" /></td>
+              <td className="n"><Num path={path(control, "fingerprint.F_calib_gap")} fmt="gap" /></td>
+              <td className="n">
+                {g(control) !== null && g(release) !== null ? (
+                  <Num path={`${path(control, "fingerprint.F_calib_gap")} − ${path(release, "fingerprint.F_calib_gap")}`} value={(g(control) as number) - (g(release) as number)} fmt="signed" derived={`${control.label} minus ${release.label}`} />
+                ) : "—"}
+              </td>
+              <td className="n nw">
+                {r3(release) !== null && r3(control) !== null ? (
+                  <>
+                    <Num path={path(release, "tailmass.ratio3")} fmt="num2" /> → <Num path={path(control, "tailmass.ratio3")} fmt="num2" />
+                  </>
+                ) : "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function AnchorsTable() {
   const bundle = useBundle();
@@ -84,6 +129,7 @@ export default function Methodology() {
   const blocks = useMemo(
     () => ({
       anchors: () => <AnchorsTable />,
+      "quant-pairs": () => <QuantPairsTable />,
       probes: () => (
         <Plate
           label="Plate P · Validation probes against the overall score"
