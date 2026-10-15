@@ -7,7 +7,8 @@ Decided with Antra after the external review (`docs/reviews/codex-gpt6-astra-202
 3. **Exact prior-content measure** — probability mass after `<bos>` on chat/instruction openers (`<|im_start|>user`, `### Instruction`, `Human:`, `Q:` …), replacing the sampled marker heuristic. Measured in the same pass as 1.
 4. **Held-out validation with the OLMo-3 7B ladder** — stage-1 → stage-2 mix ablations (`mix-math-code-reasoning-web`, `mix-gen-mc-only`, `mix-round5`, all from the same 2T checkpoint) → base → Instruct/Think. Freeze the score first; report whether it orders the held-out ladder.
 5. **Fitted anchors** — only after 4; isotonic/ordinal fit on held-out families; keep the four-feature profile as the primary display.
-6. Size vs. recipe check for the −0.02…−0.03 cluster of large bases; frank note that varentropy is reported-only.
+6. **Temperature-scaling cost** — record cross-entropy at T ∈ {0.8, 0.9, 1.0, 1.1, 1.25} per position in both scorers (one logsumexp each) and report CE(1) − min_T CE(T) beside the gap: a two-sided calibration statistic that quantisation noise cannot improve (the gap is one-sided; see the quantisation controls, 2026-10-15).
+7. Size vs. recipe check for the −0.02…−0.03 cluster of large bases; frank note that varentropy is reported-only.
 
 ## Deployment state (2026-10-13)
 
