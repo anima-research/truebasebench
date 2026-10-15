@@ -132,3 +132,16 @@ Converted (FP8 experts → MXFP4, 1.6 TB → 760 GB, 12.0% relative weight error
 - score v1 0.961, rank 2 of 38 (bundle v8); the rank is helped by the FP4 offset — with it removed the gap would score ~0.83 on the calib ramp and the overall ~0.91, still in the top group.
 
 Verdict: the cleanest large released base on the distribution statistics, with an anneal that recites Wikipedia at nearly flag level. Cost: 4.4 TB of NLA optimizer states freed, ~5 h of download, 25 min of conversion, ~1.5 h of measurement.
+
+## 2026-10-15 — DeepSeek-V4-Pro-Base at its released FP8 precision
+
+The 1.6 TB FP8 checkpoint does not fit eight B200s, but node1 has 2 TB of host RAM: vLLM with `--cpu-offload-gb 40` streams ~40 GB/GPU of weights per step over PCIe (`vh_score_vllm.py --cpu-offload-gb`). Per-step cost is fixed by the streaming (~0.7 s), so throughput is batch size: at 32 sequences the pass would have taken ~11 h; at 128 it took ~6.5 h including a 32-minute load.
+
+**Result** (`DeepSeek-V4-Pro-Base-fp8`, now the family's "Base"; the converted copy is relabelled "Base (FP4 control)"):
+- gap **−0.0173 [−0.022, −0.013]**; the FP4 conversion read −0.0038 → offset **+0.0135**, against **+0.0128** for the Flash pair. Two checkpoints of different size, the same shift to a thousandth of a nat: MXFP4 expert rounding adds entropy uniformly. Cross-entropy on post-cutoff text 1.2753 vs 1.2811 (FP4 costs 0.006 nats/token).
+- spread 0.020, ECE 0.0078, tail ratio 1.06 / 1.03 at 10⁻³ / 10⁻⁴.
+- **Wikipedia verbatim 13.4%** — above the 12% flag (FP4 read 11.1%: quantisation blunts recitation slightly, as expected for exact-run detection). Pro-Base recites; Pro chat's 12.7% comes from the base.
+- surname KL few-shot 0.254, described 0.76; exact instruction prior 0.22%.
+- score v1 0.922, rank 8 of 39 (the FP4 copy's 0.961 / rank 2 was the quantisation offset).
+
+Bundle v9. The methodology's quantisation-control note now lists every control pair.

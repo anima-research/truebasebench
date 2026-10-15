@@ -178,12 +178,21 @@ export function recitedList(bundle: Bundle): { model: Model; value: number }[] {
 }
 
 /** The quantisation control (a base whose label says so) and the release it is a re-quantisation of (same family, base, nearest order). */
+export function quantControls(bundle: Bundle): { control: Model; release: Model }[] {
+  const out: { control: Model; release: Model }[] = [];
+  for (const control of bundle.models.filter((m) => /(quanti[sz]ation|fp4) control/i.test(m.label))) {
+    const sibs = bundle.models.filter(
+      (m) => m.family === control.family && m.stage === control.stage && m.id !== control.id && !/(quanti[sz]ation|fp4) control/i.test(m.label),
+    );
+    sibs.sort((a, b) => Math.abs(a.order - control.order) - Math.abs(b.order - control.order));
+    if (sibs[0]) out.push({ control, release: sibs[0] });
+  }
+  return out;
+}
+
+/** The first quantisation-control pair (the methodology's worked example). */
 export function quantControl(bundle: Bundle): { control: Model; release: Model } | null {
-  const control = bundle.models.find((m) => /(quanti[sz]ation|fp4) control/i.test(m.label));
-  if (!control) return null;
-  const sibs = bundle.models.filter((m) => m.family === control.family && m.stage === control.stage && m.id !== control.id);
-  sibs.sort((a, b) => Math.abs(a.order - control.order) - Math.abs(b.order - control.order));
-  return sibs[0] ? { control, release: sibs[0] } : null;
+  return quantControls(bundle)[0] ?? null;
 }
 
 export function subScoreOf(m: Model, k: SubKey): number | null {

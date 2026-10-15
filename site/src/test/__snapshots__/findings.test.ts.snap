@@ -64,7 +64,7 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
     "baseHiExceptions": [
       "gemma-2-9b",
     ],
-    "baseHiMedian": -0.031,
+    "baseHiMedian": -0.033,
     "gapExceptions": [
       "Trinity-Large-Preview",
       "Llama-3.1-70B-Instruct-new",
@@ -85,9 +85,9 @@ exports[`findings predicates on the latest bundle > computed ranges (snapshot; r
   },
   "f7": {
     "pending": [],
-    "withOod": 38,
-    "withPrior": 38,
-    "withTail": 38,
+    "withOod": 39,
+    "withPrior": 39,
+    "withTail": 39,
   },
 }
 `;

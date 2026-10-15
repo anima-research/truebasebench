@@ -233,14 +233,20 @@
   "DeepSeek-V4-Pro-Base": {
    "family": "DeepSeek V4 Pro 1.6T-A78B",
    "stage": "base",
-   "label": "Base (FP4-converted)",
-   "order": 0
+   "label": "Base (FP4 control)",
+   "order": 1
   },
   "DeepSeek-V4-Pro": {
    "family": "DeepSeek V4 Pro 1.6T-A78B",
    "stage": "post-trained",
    "label": "Instruct (0813)",
-   "order": 1
+   "order": 2
+  },
+  "DeepSeek-V4-Pro-Base-fp8": {
+   "family": "DeepSeek V4 Pro 1.6T-A78B",
+   "stage": "base",
+   "label": "Base",
+   "order": 0
   }
  }
 }
