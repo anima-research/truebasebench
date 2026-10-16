@@ -126,6 +126,29 @@ export interface Prior {
   [k: string]: unknown;
 }
 
+/** Temperature-scaling cost from the tf_temp pass (docs/vh_temp.py): CE(T) at five temperatures, a quadratic fit in log T. */
+export interface Temp {
+  /** "0.8" | "0.9" | "1.0" | "1.1" | "1.25" -> mean surprisal, nats/token */
+  CE_T: Record<string, number | null>;
+  /** CE(1) − min_T CE(T), nats/token (a lower bound when T_star_at_bound) */
+  C: number | null;
+  T_star: number | null;
+  CE_min?: number | null;
+  curvature?: number | null;
+  T_star_at_bound?: boolean | null;
+  /** mean(H − s) on the tf_temp pass = the exact dCE/dlogT at T = 1 (H − s = z_y − E_p[z]) */
+  gap_pass?: number | null;
+  /** (CE(1.1) − CE(0.9)) / (ln 1.1 − ln 0.9): the measured central difference, biased a few thousandths by the curve's asymmetry */
+  slope_central?: number | null;
+  C_ci95?: [number | null, number | null] | null;
+  n_docs?: number | null;
+  n_tokens?: number | null;
+  C_domain_mean?: number | null;
+  T_star_domain_range?: [number | null, number | null] | null;
+  domains?: Record<string, { C: number | null; T_star: number | null; n_tokens?: number | null }> | null;
+  [k: string]: unknown;
+}
+
 /** genre -> [gap, verbatim share, CE] */
 export type Weird = Record<string, [number | null, number | null, number | null] | null>;
 
@@ -148,6 +171,8 @@ export interface Model {
   prior?: Prior | null;
   /** OOD genre -> tail stats (plus "ALL") */
   ood?: Record<string, TailStats | null> | null;
+  /** temperature-scaling cost (docs/vh_temp.py, bundle v10+) */
+  temp?: Temp | null;
   params?: { total_b?: number | null; active_b?: number | null } | null;
   [k: string]: unknown;
 }

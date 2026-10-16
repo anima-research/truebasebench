@@ -48,6 +48,16 @@ const RHO_PATH =
   "spearman(log10(models[*].prior.instr_mass), models[*].fingerprint.roll_instr_marker_rate)";
 
 const isBase = (m: Model) => m.stage === "pre-anneal" || m.stage === "base";
+
+/** Numbers-list rows for the temperature-scaling check: the thresholds (definitions) and every exception. */
+function tempNumbers(f7: Findings["f7"]): FindingNumber[] {
+  if (!f7.withTemp.length) return [];
+  return [
+    { label: "temperature-scaling cost, base ceiling", path: "findings.F7_C_BASE_MAX", value: FINDING_DEFS.F7_C_BASE_MAX, fmt: "raw", def: true },
+    { label: "temperature-scaling cost, post-trained floor", path: "findings.F7_C_POST_MIN", value: FINDING_DEFS.F7_C_POST_MIN, fmt: "raw", def: true },
+    ...[...f7.tempBaseBad, ...f7.tempPostLow, ...f7.tempDistilled].map((m) => numOf(m, "temp.C", "raw", "temperature-scaling cost C")),
+  ];
+}
 const isDistilled = (m: Model) =>
   /distill/i.test(m.label) || /distill/i.test(m.id);
 const byStage = (a: Model, b: Model) =>
@@ -570,7 +580,18 @@ export function useFindingView(bundle: Bundle, F: Findings): FindingView {
         </p>
         <p>
           Noise: no non-distilled pre-anneal or base checkpoint below −
-          {noiseTolNum} on base64 — {state(f7.checks.noise)}.
+          {noiseTolNum} on base64 — {state(f7.checks.noise)}. Temperature-scaling cost ([definition](/methodology#temperature)): every
+          non-distilled pre-anneal, mid-anneal and base checkpoint below{" "}
+          <Num path="findings.F7_C_BASE_MAX" value={FINDING_DEFS.F7_C_BASE_MAX} fmt="raw" def /> nats/token and at least{" "}
+          <Num path="findings.F7_C_POST_SHARE" value={FINDING_DEFS.F7_C_POST_SHARE} fmt="pct" def /> of post-trained checkpoints at or above{" "}
+          <Num path="findings.F7_C_POST_MIN" value={FINDING_DEFS.F7_C_POST_MIN} fmt="raw" def /> — {state(f7.checks.temperature)}
+          {f7.tempPostLow.length > 0 && !f7.checks.temperature.pending ? (
+            <>
+              {" "}(post-trained below the floor: {joinNodes(f7.tempPostLow.map((m) => <Checkpoint key={m.id} m={m} />))}
+              {f7.tempDistilled.length ? <>; distilled, not counted: {joinNodes(f7.tempDistilled.map((m) => <Checkpoint key={m.id} m={m} />))}</> : null})
+            </>
+          ) : null}
+          .
         </p>
       </Aside>
     ),
@@ -768,7 +789,7 @@ export function useFindingView(bundle: Bundle, F: Findings): FindingView {
           </FindingPlate>
         ),
     },
-    numbers: [...tailNumbers, ...priorNumbers, ...oodNumbers],
+    numbers: [...tailNumbers, ...priorNumbers, ...oodNumbers, ...tempNumbers(f7)],
     checks: f7.checks,
   };
 }

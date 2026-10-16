@@ -5,6 +5,7 @@ import { byId, fp, get, path } from "../data/bundle";
 import { CI_KEY, defaultCompare, fmtParams, nAvailable, nScored, params, preAnnealBand, ranked } from "../data/derive";
 import { ciBounds } from "../data/ci";
 import { fmtMass, oodRows, PriorMassBars, TAIL_KS, tailLabel, TailMassRows, TailReliabilityDiagram, withCI } from "../charts/TailPriorCharts";
+import { TempSpark, tempNote } from "../charts/TempCharts";
 import { describe, GROUPS } from "../data/glossary";
 import { SUB_META } from "../data/method";
 import { isScoredSub, meanOfStored, scoredKeysOf } from "../data/scoring";
@@ -421,6 +422,40 @@ export default function ModelPage() {
                 ["F_gap_domain_absmean", <><Num path={P("fingerprint.F_gap_domain_absmean")} fmt="nats" />{ciSpan(model, "spread", "nats")}</>],
                 ["F_gap_domain_min", <Num path={P("fingerprint.F_gap_domain_min")} fmt="gap" />],
                 ["tail.tf_fresh.gap_hiH", <Num path={P("tail.tf_fresh.gap_hiH")} fmt="gap" />],
+                ...(model.temp && isNum(model.temp.C)
+                  ? ([
+                      [
+                        <span title="temperature-scaling cost: CE(1) − min over T of CE(T), nats/token; reported, not scored (methodology → Temperature-scaling cost)">temperature-scaling cost C</span>,
+                        <>
+                          <Num path={P("temp.C")} fmt="raw" />
+                          {model.temp.T_star_at_bound && <span className="ink3" title="minimum at the edge of the temperature grid: C is a lower bound"> (≥, at bound)</span>}
+                          {model.temp.C_ci95 && isNum(model.temp.C_ci95[0]) && isNum(model.temp.C_ci95[1]) && (
+                            <span className="ink3" title={`95% document bootstrap, ${model.temp.n_docs ?? "—"} documents`}>
+                              {" "}[{fmt(model.temp.C_ci95[0], "raw")}, {fmt(model.temp.C_ci95[1], "raw")}]
+                            </span>
+                          )}
+                        </>,
+                      ],
+                      ["T* (minimiser)", <><Num path={P("temp.T_star")} fmt="num3" />{model.temp.T_star_at_bound ? <span className="ink3"> at the grid edge</span> : null}</>],
+                      [
+                        "per-domain T* range",
+                        model.temp.T_star_domain_range && isNum(model.temp.T_star_domain_range[0]) ? (
+                          <>
+                            <Num path={P("temp.T_star_domain_range[0]")} fmt="num2" />–<Num path={P("temp.T_star_domain_range[1]")} fmt="num2" />
+                          </>
+                        ) : (
+                          <span className="ink3">—</span>
+                        ),
+                      ],
+                      [
+                        "CE(T) − CE_min, T = 0.8 … 1.25",
+                        <span title={tempNote(model.temp)}>
+                          <TempSpark t={model.temp} />{" "}
+                          <span className="small ink3">{["0.8", "0.9", "1.0", "1.1", "1.25"].map((k) => fmtNum(isNum(model.temp?.CE_T?.[k]) && isNum(model.temp?.CE_min) ? model.temp!.CE_T[k]! - model.temp!.CE_min! : null, "num3")).join(" · ")}</span>
+                        </span>,
+                      ],
+                    ] as [React.ReactNode, React.ReactNode][])
+                  : []),
                 ...(band
                   ? ([[
                       "pre-anneal band",

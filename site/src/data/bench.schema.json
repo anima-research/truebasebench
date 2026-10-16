@@ -556,6 +556,72 @@
               }
             }
           ]
+        },
+        "temp": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "CE_T",
+                "C",
+                "T_star"
+              ],
+              "properties": {
+                "CE_T": {
+                  "$ref": "#/definitions/numMap"
+                },
+                "C": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "T_star": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "T_star_at_bound": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "C_ci95": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/definitions/numOrNull"
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "T_star_domain_range": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/definitions/numOrNull"
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "domains": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "gap_pass": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "slope_central": {
+                  "$ref": "#/definitions/numOrNull"
+                }
+              }
+            }
+          ]
         }
       }
     },

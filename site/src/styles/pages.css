@@ -49,6 +49,7 @@
 .probe-tag { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-strong); padding: 0 3px; margin-left: 4px; vertical-align: middle; }
 .subcell.probe svg { opacity: 0.55; }
 .subcell.probe .v.kl { min-width: 3.2ch; color: var(--ink); }
+.lb-table .c-temp .subcell .v { min-width: 5.5ch; font-variant-numeric: tabular-nums; }
 .subcell.probe .rng { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
 .micro > span.probe { opacity: 0.6; }
 /* recitation flag (score v1): a base-like distribution that recites Wikipedia keeps that fact visible */

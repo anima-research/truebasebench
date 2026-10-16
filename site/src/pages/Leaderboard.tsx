@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useBundle, useLoaded } from "../data/BundleContext";
 import { CI_KEY, ciBounds, ciScore, compareOverall, familiesOf, fmtParams, ladder, ladderColumns, nAvailable, nScored, params, probeValue, ranked, SIZE_LABEL, sizeBucket, STAGE_CODE, stageOrder, type SizeBucket } from "../data/derive";
 import { PROBE_KEYS, PROBE_META, RAMPS, SUB_META, type ProbeKey } from "../data/method";
+import { fmtC } from "../charts/TempCharts";
+import { get } from "../data/bundle";
 import { isScoredSub, scoredKeys, scoredKeysOf } from "../data/scoring";
 import { SUB_KEYS, type Model, type Stage, type SubKey } from "../data/types";
 import { fmt, fmtNum } from "../lib/numfmt";
@@ -16,7 +18,8 @@ import { ReciteBadge } from "../components/ReciteBadge";
 import { recitation } from "../data/derive";
 import { linear } from "../lib/scale";
 
-type SortKey = "overall" | SubKey | ProbeKey | "model" | "stage" | "size";
+type SortKey = "overall" | SubKey | ProbeKey | "temp" | "model" | "stage" | "size";
+const TEMP_TITLE = "Temp. cost (reported, not scored): C = CE(1) − min over T of CE(T), nats/token — the cross-entropy the model would gain from one global temperature rescaling; two-sided (over- and under-confidence both > 0). ≥ marks a minimum at the edge of the measured grid (C is a lower bound). Candidate calibration term for score v2.";
 export const PROBE_NOTE = "validation probe: not a term of the score; the score should predict it";
 const SIZES: SizeBucket[] = ["lt15", "15to100", "gt100", "unknown"];
 
@@ -304,6 +307,8 @@ export default function Leaderboard() {
           return params(m).total_b;
         case "KL_few":
           return probeValue(m, "KL_few");
+        case "temp":
+          return get(m, "temp.C");
         default:
           // with raw features shown, sort by what is shown: the unclipped feature, oriented like the score
           return raw ? rampPosition(m, sort) : m.subscores?.[sort]?.score ?? null;
@@ -530,6 +535,8 @@ export default function Leaderboard() {
                 <option value={`${k}:asc`}>{PROBE_META[k].name} (probe), low first</option>
               </Fragment>
             ))}
+            <option value="temp:asc">Temp. cost (reported), low first</option>
+            <option value="temp:desc">Temp. cost (reported), high first</option>
             <option value="model:asc">Model A–Z</option>
             <option value="stage:asc">Stage order</option>
           </select>
@@ -571,6 +578,9 @@ export default function Leaderboard() {
                   {PROBE_META[k].name} <span className="probe-tag">probe</span>
                 </SortTh>
               ))}
+              <SortTh k="temp" className="c-probe c-temp" title={TEMP_TITLE}>
+                Temp. cost <span className="probe-tag">reported</span>
+              </SortTh>
             </tr>
           </thead>
           <tbody ref={tbodyRef}>
@@ -633,6 +643,11 @@ export default function Leaderboard() {
                       <ProbeCell m={m} k={k} />
                     </td>
                   ))}
+                  <td className="c-probe c-temp">
+                    <span className="subcell probe" title={m.temp ? `${TEMP_TITLE} This row: C ${fmtC(m.temp)}, T* ${fmtNum(m.temp.T_star, "num2")}${m.temp.C_ci95 ? `, 95% CI [${fmt(m.temp.C_ci95[0], "raw")}, ${fmt(m.temp.C_ci95[1], "raw")}]` : ""}` : `${TEMP_TITLE} Not measured for this checkpoint.`}>
+                      <span className={"v kl" + (m.temp?.T_star_at_bound ? " bound" : "")}>{m.temp ? fmtC(m.temp) : "—"}</span>
+                    </span>
+                  </td>
                   <td className="c-micro" aria-hidden="true">
                     <MicroBars m={m} />
                   </td>

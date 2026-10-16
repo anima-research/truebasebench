@@ -8,6 +8,9 @@ import { Num } from "../components/Num";
 import { preAnnealBand, quantControl, quantControls, recitationAnchors, recitedList, specimenPair } from "../data/derive";
 import { isScored, scoredKeys } from "../data/scoring";
 import { ProbePanels, probeStat } from "../charts/ProbeCharts";
+import { fmtC, TempCurves } from "../charts/TempCharts";
+import { StageDotStrip } from "../charts/ModelCharts";
+import { get } from "../data/bundle";
 import { Plate } from "../components/Plate";
 import { PROBE_META } from "../data/method";
 import { fp, path } from "../data/bundle";
@@ -130,6 +133,62 @@ export default function Methodology() {
     () => ({
       anchors: () => <AnchorsTable />,
       "quant-pairs": () => <QuantPairsTable />,
+      temp: () => {
+        const A = sp?.A;
+        const B = sp?.B;
+        const pair = [A, B].filter((m): m is NonNullable<typeof m> => !!m && !!m.temp);
+        const withTemp = bundle.models.filter((m) => m.temp && typeof m.temp.C === "number");
+        return (
+          <Plate
+            label="Plate T · Temperature-scaling cost"
+            caption="Left: CE(T) − CE_min for the specimen pair over the five measured temperatures (log-T axis); points measured, curve a quadratic in log T through them, the tick on the axis the minimiser T*, the dotted line the tangent at T = 1, whose slope is the calibration gap on this pass (exact: dCE/dlogT = mean(H − s)); the measured central difference printed under the panel is the O(h²) check, a few thousandths steeper because the curve is asymmetric. Right: C for every checkpoint on a log axis, by stage, with 95% document-bootstrap whiskers; hollow glyphs with ≥ sat at the edge of the temperature grid, so their C is a lower bound."
+            sources={["models[*].temp.CE_T", "models[*].temp.C", "models[*].temp.T_star", "models[*].temp.T_star_at_bound", "models[*].temp.C_ci95", "models[*].temp.gap_pass", "models[*].temp.slope_central"]}
+            data={{
+              columns: ["checkpoint", "stage", "C (nats/token)", "95% CI", "T*", "at bound", "CE(0.8)", "CE(0.9)", "CE(1)", "CE(1.1)", "CE(1.25)", "gap on pass = dCE/dlogT at 1", "measured central difference", "F_calib_gap (tf_fresh)"],
+              numeric: [false, false, true, false, true, false, true, true, true, true, true, true, true, true],
+              rows: withTemp.map((m) => [
+                `${m.family} · ${m.label}`,
+                m.stage,
+                fmtC(m.temp),
+                m.temp!.C_ci95 ? `[${(m.temp!.C_ci95[0] ?? NaN).toFixed(4)}, ${(m.temp!.C_ci95[1] ?? NaN).toFixed(4)}]` : "—",
+                (m.temp!.T_star ?? NaN).toFixed(3),
+                m.temp!.T_star_at_bound ? "yes" : "no",
+                ...["0.8", "0.9", "1.0", "1.1", "1.25"].map((k) => (m.temp!.CE_T?.[k] ?? NaN).toFixed(4)),
+                (m.temp!.gap_pass ?? NaN).toFixed(4),
+                (m.temp!.slope_central ?? NaN).toFixed(4),
+                (fp(m, "F_calib_gap") ?? NaN).toFixed(4),
+              ]),
+            }}
+          >
+            <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+              <div style={{ minWidth: 0 }}>
+                {pair.length ? <TempCurves models={pair} labels={pair.map((m, i) => `${i === 0 && m.id === A?.id ? "A" : "B"} · ${m.label}`)} /> : <p className="small ink3">Specimen pair not measured.</p>}
+                {pair.map((m) => (
+                  <p key={m.id} className="small ink2" style={{ margin: "4px 0 0" }}>
+                    {m.label}: slope at T = 1 = gap on this pass <Num path={path(m, "temp.gap_pass")} fmt="signed" /> (measured central difference{" "}
+                    <Num path={path(m, "temp.slope_central")} fmt="signed" />); T* <Num path={path(m, "temp.T_star")} fmt="num2" />; C{" "}
+                    <Num path={path(m, "temp.C")} fmt="raw" />
+                  </p>
+                ))}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <StageDotStrip
+                  bundle={bundle}
+                  value={(m) => get(m, "temp.C")}
+                  valuePath={(m) => path(m, "temp.C")}
+                  fmtKind="raw"
+                  axisTitle="temperature-scaling cost C, nats/token (log axis)"
+                  logScale
+                  boundOf={(m) => !!m.temp?.T_star_at_bound}
+                  ci={(m) => (m.temp?.C_ci95 && typeof m.temp.C_ci95[0] === "number" && typeof m.temp.C_ci95[1] === "number" && m.temp.C_ci95[0] > 0 ? [m.temp.C_ci95[0], m.temp.C_ci95[1]] : null)}
+                  metricName="C"
+                  labelIds={pair.map((m) => m.id)}
+                />
+              </div>
+            </div>
+          </Plate>
+        );
+      },
       probes: () => (
         <Plate
           label="Plate P · Validation probes against the overall score"
@@ -159,6 +218,23 @@ export default function Methodology() {
     const qc = quantControl(bundle);
     /** Plain-language reading of a Spearman ρ between the score and a probe (negative = the score predicts it). */
     const verdict = (r: number | null) => (r === null ? "cannot be assessed" : r <= -0.5 ? "the score orders it" : r <= -0.3 ? "the score orders it weakly" : r < 0.3 ? "the score does not order it" : "the score orders it the wrong way");
+    const temps = {
+      base: bundle.models.filter((m) => m.stage !== "post-trained" && typeof m.temp?.C === "number"),
+      post: bundle.models.filter((m) => m.stage === "post-trained" && typeof m.temp?.C === "number"),
+    };
+    /** "lo–hi" of a temp field over a group, each end a Num pointing at the model that sets it. */
+    const rangeNum = (ms: typeof temps.base, key: string, f: Fmt) => {
+      const v = (m: (typeof ms)[number]) => get(m, key);
+      const ok = ms.filter((m) => v(m) !== null);
+      if (!ok.length) return <>—</>;
+      const lo = ok.reduce((a, m) => (v(m)! < v(a)! ? m : a));
+      const hi = ok.reduce((a, m) => (v(m)! > v(a)! ? m : a));
+      return (
+        <>
+          <Num path={path(lo, key)} fmt={f} />–<Num path={path(hi, key)} fmt={f} />
+        </>
+      );
+    };
     const rho = (s: { rho: number | null; n: number }, what: string, p: string) =>
       s.rho === null ? <>—</> : <Num path={p} value={s.rho} fmt="num2" derived={`Spearman ρ between models[*].score and ${what} over ${s.n} checkpoints`} />;
     const pre = bundle.models.filter((m) => m.stage === "pre-anneal" && fp(m, "F_gap_domain_min") !== null);
@@ -184,6 +260,26 @@ export default function Methodology() {
       "quant-release-gap": () => (qc ? <Num path={path(qc.release, "fingerprint.F_calib_gap")} fmt="gap" /> : <>—</>),
       "memo-verdict": () => <>{verdict(probes.memo.rho)}</>,
       "kl-verdict": () => <>{verdict(probes.kl.rho)}</>,
+      "temp-a": () => <>{sp ? name(sp.A) : "—"}</>,
+      "temp-b": () => <>{sp ? name(sp.B) : "—"}</>,
+      "temp-a-C": () => (sp?.A.temp ? <Num path={path(sp.A, "temp.C")} fmt="raw" /> : <>—</>),
+      "temp-b-C": () => (sp?.B.temp ? <Num path={path(sp.B, "temp.C")} fmt="raw" /> : <>—</>),
+      "temp-a-range": () => {
+        const r = sp?.A.temp?.T_star_domain_range;
+        return r && typeof r[0] === "number" && typeof r[1] === "number" ? (
+          <>
+            <Num path={path(sp!.A, "temp.T_star_domain_range[0]")} fmt="num2" />–<Num path={path(sp!.A, "temp.T_star_domain_range[1]")} fmt="num2" />
+          </>
+        ) : (
+          <>—</>
+        );
+      },
+      "temp-base-range": () => rangeNum(temps.base, "temp.C", "raw"),
+      "temp-base-tstar": () => rangeNum(temps.base, "temp.T_star", "num2"),
+      "temp-n-base": () => <>{temps.base.length}</>,
+      "temp-post-range": () => rangeNum(temps.post, "temp.C", "raw"),
+      "temp-n-post": () => <>{temps.post.length}</>,
+      "temp-n-bound": () => <>{temps.post.filter((m) => m.temp?.T_star_at_bound).length}</>,
       "recite-anchor": () => <Num path="method.RAMPS.memo[1]" value={recitationAnchors(bundle)[1]} fmt="pct" def />,
       "recite-elevated-anchor": () => <Num path="method.RAMPS.memo[0]" value={recitationAnchors(bundle)[0]} fmt="pct" def />,
       "recite-n": () => <>{recitedList(bundle).length}</>,

@@ -24,12 +24,13 @@ export type FindingsPlate = (typeof FINDINGS_PLATES)[number];
 /** f1-claim, f1-detail, f1-readoff, ... (detail is optional per finding) */
 export const FINDINGS_BLOCKS: string[] = [...FINDINGS_PLATES, ...FINDING_IDS.flatMap((f) => [`${f}-claim`, `${f}-detail`, `${f}-readoff`])];
 
-export const METHODOLOGY_BLOCKS = ["anchors", "quant-pairs", "probes"] as const;
+export const METHODOLOGY_BLOCKS = ["anchors", "quant-pairs", "probes", "temp"] as const;
 export const METHODOLOGY_VALUES = [
   "pre-band", "pre-domain-min", "spec-a", "spec-b", "spec-a-gap", "spec-b-gap",
   "n-scored", "scored-list", "rho-memo", "n-memo", "rho-kl", "n-kl",
   "quant-control", "quant-release", "quant-control-gap", "quant-release-gap", "quant-delta",
   "recite-anchor", "recite-elevated-anchor", "recite-list", "recite-n", "memo-verdict", "kl-verdict",
+  "temp-a", "temp-b", "temp-a-C", "temp-b-C", "temp-a-range", "temp-base-range", "temp-base-tstar", "temp-n-base", "temp-post-range", "temp-n-post", "temp-n-bound",
 ] as const;
 export type MethodologyValue = (typeof METHODOLOGY_VALUES)[number];
 

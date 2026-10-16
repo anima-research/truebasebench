@@ -7,7 +7,7 @@ import { ChartFrame, Mark, TipBody } from "../components/Chart";
 import { GlyphShape } from "../components/Glyph";
 import { XAxis, xTitleExtra, YAxis } from "../components/Axis";
 import { cmpNullsLast, fmt, fmtNum, fmtTick, isNum, type Fmt } from "../lib/numfmt";
-import { beeswarm, extent, linear, niceTicks, textWidth, wrapText } from "../lib/scale";
+import { beeswarm, extent, linear, log10Scale, niceTicks, textWidth, wrapText } from "../lib/scale";
 
 const href = (m: Model) => `/model/${encodeURIComponent(m.id)}`;
 
@@ -285,6 +285,8 @@ export function StageDotStrip({
   metricName = "",
   ciKey,
   showMissing = true,
+  logScale = false,
+  boundOf,
 }: {
   bundle: Bundle;
   value: (m: Model) => number | null;
@@ -314,11 +316,21 @@ export function StageDotStrip({
   ciKey?: string;
   /** false: the caller lists unmeasured checkpoints itself (a NullPlate sentence, DESIGN §11.6) instead of the in-figure line */
   showMissing?: boolean;
+  /** log₁₀ axis (positive values only); ticks at powers of ten */
+  logScale?: boolean;
+  /** rows whose value is a lower bound: hollow glyph with a "≥" beside it (the off-axis idiom) */
+  boundOf?: (m: Model) => boolean;
 }) {
-  const ms = bundle.models.filter((m) => isNum(value(m)));
-  const ex = domain ?? extent(zero ? [...ms.map(value), 0] : ms.map(value)) ?? [0, 1];
+  const ms = bundle.models.filter((m) => isNum(value(m)) && (!logScale || value(m)! > 0));
+  const ex = domain ?? extent(zero && !logScale ? [...ms.map(value), 0] : ms.map(value)) ?? (logScale ? [0.001, 1] : [0, 1]);
   const pad = domain ? 0 : (ex[1] - ex[0]) * 0.05 || 0.05;
-  const dom: [number, number] = [ex[0] - pad, ex[1] + pad];
+  const dom: [number, number] = logScale ? (domain ?? [ex[0] / 1.5, ex[1] * 1.5]) : [ex[0] - pad, ex[1] + pad];
+  const logTicks = (() => {
+    const out: number[] = [];
+    if (!logScale || !(dom[0] > 0) || !Number.isFinite(dom[1])) return out;
+    for (let e = Math.ceil(Math.log10(dom[0]) - 1e-9); e <= Math.floor(Math.log10(dom[1]) + 1e-9) && out.length < 12; e++) out.push(10 ** e);
+    return out;
+  })();
   const clampV = (v: number) => Math.max(dom[0], Math.min(dom[1], v));
   const offAxis = (v: number) => v < dom[0] || v > dom[1];
   const labelText = (m: Model) => (labelOf ? labelOf(m) : m.label);
@@ -331,7 +343,7 @@ export function StageDotStrip({
     <ChartFrame ariaLabel={aria}>
       {(w) => {
         const L = 52;
-        const x = linear(dom, [L, w - 14]);
+        const x = logScale ? log10Scale(dom, [L, w - 14]) : linear(dom, [L, w - 14]);
         // median rows are taller: the tick's value prints under the row
         const rh = showMedian ? 44 : 34;
         const LANE = 14;
@@ -414,7 +426,12 @@ export function StageDotStrip({
                 >
                   {isHl && <circle cx={p.x} cy={p.y} r={8} fill="var(--hl)" />}
                   <g opacity={fade ? 0.45 : 1}>
-                    <GlyphShape stage={m.stage} x={p.x} y={p.y} size={isHl ? 9 : 7} hollow={isCmp} />
+                    <GlyphShape stage={m.stage} x={p.x} y={p.y} size={isHl ? 9 : 7} hollow={isCmp || !!boundOf?.(m)} />
+                    {boundOf?.(m) && (
+                      <text x={p.x + 6} y={p.y + 4} className="halo" style={{ fontSize: 10, fill: "var(--ink-2)" }}>
+                        ≥
+                      </text>
+                    )}
                   </g>
                 </Mark>
               );
@@ -447,8 +464,8 @@ export function StageDotStrip({
             <XAxis
               scale={x}
               y={rowsH + 2}
-              ticks={ticks ?? niceTicks(dom[0], dom[1], w < 480 ? 4 : 7)}
-              format={(v) => fmtTick(v, { pct: fmtKind === "pct", signed: fmtKind === "gap" })}
+              ticks={ticks ?? (logScale ? logTicks : niceTicks(dom[0], dom[1], w < 480 ? 4 : 7))}
+              format={(v) => (logScale ? (v >= 1 ? String(v) : v.toFixed(Math.max(0, -Math.floor(Math.log10(v))))) : fmtTick(v, { pct: fmtKind === "pct", signed: fmtKind === "gap" }))}
               title={axisTitle}
             />
             {missLines.length > 0 && (

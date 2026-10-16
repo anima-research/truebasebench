@@ -33,6 +33,12 @@ export const FINDING_DEFS = {
   F7_NOISE_TOL: 0.1,
   /** F7: |Spearman ρ| between log exact instruction mass and the sampled marker rate must stay below this */
   F7_RHO_MAX: 0.5,
+  /** F7: every non-distilled pre-anneal / mid-anneal / base checkpoint has a temperature-scaling cost below this, nats/token */
+  F7_C_BASE_MAX: 0.002,
+  /** F7: a post-trained checkpoint supports the temperature claim when its cost is at least this, nats/token */
+  F7_C_POST_MIN: 0.005,
+  /** F7: share of post-trained checkpoints that must support it */
+  F7_C_POST_SHARE: 0.75,
   /** F2: the memo family's anneal must raise the Wikipedia verbatim share by more than this */
   F2_MEMO_RISE: 0.05,
   /** F2: the prior family's anneal must raise the marker rate by more than this on every annealed rung */
@@ -344,6 +350,13 @@ export function f6(b: Bundle): F6 {
 
 // ---------- F7 tail reliability, exact prior, OOD noise (bundle v6 blocks; keyed on data presence) ----------
 export interface F7 {
+  /** models carrying the temp block; bases / post-trained split; exceptions to the temperature claim */
+  withTemp: Model[];
+  tempBases: Model[];
+  tempPosts: Model[];
+  tempBaseBad: Model[];
+  tempPostLow: Model[];
+  tempDistilled: Model[];
   /** models carrying the tailmass block */
   withTail: Model[];
   withPrior: Model[];
@@ -354,7 +367,7 @@ export interface F7 {
   ratio3Median: { bases: number | null; posts: number | null };
   /** Spearman rank correlation between log10 exact instruction mass and the sampled marker rate; null below F7_MIN pairs */
   rho: number | null;
-  checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check };
+  checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check; temperature: Check };
 }
 
 /** Minimum models per group before a F7 claim is tested at all; below it the check reports "insufficient data" and holds. */
@@ -380,7 +393,20 @@ export function f7(b: Bundle): F7 {
   const isDistilled = (m: Model) => /distill/i.test(m.label) || /distill/i.test(m.id);
   const noiseBad = withOod.filter((m) => isBase(m) && !isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -FINDING_DEFS.F7_NOISE_TOL);
   const noiseDistilled = withOod.filter((m) => isBase(m) && isDistilled(m) && (get(m, "ood.base64.gap") ?? 0) < -FINDING_DEFS.F7_NOISE_TOL);
+  // temperature-scaling cost: bases (any non-post stage, non-distilled) below F7_C_BASE_MAX; most post-trained above F7_C_POST_MIN
+  const withTemp = b.models.filter((m) => m.temp && num(get(m, "temp.C")));
+  const tempBases = withTemp.filter((m) => m.stage !== "post-trained" && !isDistilled(m));
+  const tempPosts = withTemp.filter((m) => m.stage === "post-trained");
+  const tempBaseBad = tempBases.filter((m) => get(m, "temp.C")! >= FINDING_DEFS.F7_C_BASE_MAX);
+  const tempPostLow = tempPosts.filter((m) => get(m, "temp.C")! < FINDING_DEFS.F7_C_POST_MIN);
+  const tempDistilled = withTemp.filter((m) => m.stage !== "post-trained" && isDistilled(m));
   return {
+    withTemp,
+    tempBases,
+    tempPosts,
+    tempBaseBad,
+    tempPostLow,
+    tempDistilled,
     withTail,
     withPrior,
     withOod,
@@ -400,6 +426,13 @@ export function f7(b: Bundle): F7 {
       // start mass on openers (instruction data in the pretraining mix) are different properties; they do not rank models alike
       priorAgrees:
         rho === null ? pending("exact prior vs marker rate", pairs.length) : { ok: Math.abs(rho) < FINDING_DEFS.F7_RHO_MAX, note: `the exact instruction mass and the sampled marker rate rank models alike after all (Spearman ${rho.toFixed(2)}); the methodology text says they measure different things` },
+      temperature:
+        tempBases.length < F7_MIN || tempPosts.length < F7_MIN
+          ? pending("temperature-scaling cost by stage", Math.min(tempBases.length, tempPosts.length))
+          : {
+              ok: tempBaseBad.length === 0 && tempPosts.length - tempPostLow.length >= FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length,
+              note: `${tempBaseBad.length ? `a non-distilled base checkpoint has a temperature-scaling cost of ${FINDING_DEFS.F7_C_BASE_MAX} nats/token or more: ${tempBaseBad.map((m) => m.label).join(", ")}` : ""}${tempBaseBad.length && tempPosts.length - tempPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length ? "; " : ""}${tempPosts.length - tempPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length ? `fewer than ${Math.round(FINDING_DEFS.F7_C_POST_SHARE * 100)}% of post-trained checkpoints have a cost of ${FINDING_DEFS.F7_C_POST_MIN} nats/token or more` : ""}`,
+            },
       noise:
         withOod.filter(isBase).length < F7_MIN
           ? pending("over-confidence on noise", withOod.filter(isBase).length)
