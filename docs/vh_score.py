@@ -24,6 +24,8 @@ def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
+TEMPS = (0.8, 0.9, 1.1, 1.25)  # surprisal at these temperatures (s at T=1 is `s`); columns sT08, sT09, sT11, sT125
+TEMP_COLS = ("sT08", "sT09", "sT11", "sT125")
 TAIL_THRESH = (1e-2, 1e-3, 1e-4)  # predicted tail mass: total probability on tokens with p < thr (columns m2, m3, m4)
 
 
@@ -85,7 +87,7 @@ def build_corpus(out_path, arrow_path, n_tf, n_openers, min_chars=400, seed=0):
 
 @torch.no_grad()
 def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf", min_len=8, start_id=None):
-    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
+    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4", *TEMP_COLS]}
     meta = []
     t0 = time.time()
     ntok = 0
@@ -112,6 +114,9 @@ def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf", min_
             rank = (lg.float() > tl).sum(-1)
             tm = tail_mass(logp.exp()).half().cpu()
             cols["m2"].append(tm[:, 0]); cols["m3"].append(tm[:, 1]); cols["m4"].append(tm[:, 2])
+            lgf = lg.float()
+            for T, col in zip(TEMPS, TEMP_COLS):  # surprisal of the real token under temperature T
+                cols[col].append((-F.log_softmax(lgf / T, dim=-1).gather(1, tg[:, None])[:, 0]).half().cpu())
             cols["H"].append(H.half().cpu()); cols["V"].append(V.half().cpu())
             cols["s"].append(s.half().cpu()); cols["p1"].append(p1.half().cpu())
             cols["top1"].append(t1.int().cpu()); cols["rank"].append(rank.int().cpu())

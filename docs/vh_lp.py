@@ -12,14 +12,18 @@ from vllm.v1.sample.logits_processor import LogitsProcessor, BatchUpdate
 
 
 class _Req:
-    __slots__ = ("vid", "out", "force", "out_ids", "step", "H", "V", "p1", "t1", "s", "rank", "last_logp", "m2", "m3", "m4")
+    __slots__ = ("vid", "out", "force", "out_ids", "step", "H", "V", "p1", "t1", "s", "rank", "last_logp", "m2", "m3", "m4", "sT")
 
     def __init__(self, vid, out, force, out_ids):
         self.vid, self.out, self.force, self.out_ids = vid, out, force, out_ids
         self.step = 0
         self.H, self.V, self.p1, self.t1, self.s, self.rank = [], [], [], [], [], []
         self.m2, self.m3, self.m4 = [], [], []
+        self.sT = []  # per step: surprisal of the forced token at TEMPS
         self.last_logp = None  # (V,) float32 cpu tensor of the previous step (for s of a free-sampled token)
+
+
+TEMPS = (0.8, 0.9, 1.1, 1.25)
 
 
 class VHRecorder(LogitsProcessor):
@@ -52,6 +56,7 @@ class VHRecorder(LogitsProcessor):
                      top1=np.array(r.t1[:n], np.int32), s=np.array(r.s[:n], np.float32),
                      rank=np.array(r.rank[:n] if r.rank else [], np.int32),
                      m2=np.array(r.m2[:n], np.float32), m3=np.array(r.m3[:n], np.float32), m4=np.array(r.m4[:n], np.float32),
+                     sT=np.array(r.sT[:n], np.float32).reshape(-1, len(TEMPS)) if r.sT else np.zeros((0, len(TEMPS)), np.float32),
                      tok=np.array(list(r.out_ids)[:n], np.int32), forced=np.array(r.force is not None))
 
     def update_state(self, batch_update: BatchUpdate | None):
@@ -111,6 +116,7 @@ class VHRecorder(LogitsProcessor):
                     t = int(r.force[r.step])
                     r.s.append(float(-logp[k, t]))
                     r.rank.append(int((lg[k] > lg[k, t]).sum()))
+                    r.sT.append([float(-torch.log_softmax(lg[k] / T, dim=-1)[t]) for T in TEMPS])
                     forced_rows.append(i); forced_toks.append(t)
             else:
                 if logp_cpu is None:

@@ -43,7 +43,7 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
     base.log(f"{tag}: {len(prompts)} docs replayed in {time.time()-t0:.0f}s")
     # the recorder writes its file when the engine core finalizes a request, which can trail generate() by seconds
     rec = collect(tmp, tag + "_", expected={f"{tag}_{m['doc']:04d}" for m in meta})
-    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4"]}
+    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4", *base.TEMP_COLS]}
     mism = 0
     for m, o in zip(meta, outs):
         r = rec.get(f"{tag}_{m['doc']:04d}")
@@ -58,6 +58,8 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
             mism += 1
         for k in ["H", "V", "s", "p1", "top1", "rank", "m2", "m3", "m4"]:
             cols[k].append(r[k][:n])
+        for j, col in enumerate(base.TEMP_COLS):
+            cols[col].append(r["sT"][:n, j])
         cols["tok"].append(np.array(forces[m["doc"]][:n], np.int32))  # the forced targets (vLLM's output list can differ at the final step)
         cols["doc"].append(np.full(n, m["doc"], np.int32)); cols["pos"].append(np.arange(n, dtype=np.int32))
     missing = sum(1 for m in meta if rec.get(f"{tag}_{m['doc']:04d}") is None)
@@ -67,7 +69,7 @@ def run_tf(llm, tok, docs, max_len, tag, tmp, sp_kwargs, min_len=8, start_id=Non
             raise RuntimeError("teacher-forced replay integrity failure: " + msg)
         base.log("WARNING (lenient): " + msg)
     arrs = {k: np.concatenate(v) for k, v in cols.items()}
-    for k in ["H", "V", "s", "p1", "m2", "m3", "m4"]:
+    for k in ["H", "V", "s", "p1", "m2", "m3", "m4", *base.TEMP_COLS]:
         arrs[k] = arrs[k].astype(np.float16)
     return arrs, meta
 

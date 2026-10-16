@@ -145,3 +145,17 @@ The 1.6 TB FP8 checkpoint does not fit eight B200s, but node1 has 2 TB of host R
 - score v1 0.922, rank 8 of 39 (the FP4 copy's 0.961 / rank 2 was the quantisation offset).
 
 Bundle v9. The methodology's quantisation-control note now lists every control pair.
+
+## 2026-10-15 (evening) — temperature-scaling cost: the two-sided calibration statistic
+
+**Motivation.** The FP4 controls showed the calibration gap is one-sided: rounding noise raised cross-entropy by 0.006 nats/token yet moved the gap 0.013 toward zero, because anything that adds entropy closes a negative gap from the hedging side. Antra's call: run the replacement.
+
+**Measurement.** Both scorers now record the real token's surprisal at T ∈ {0.8, 0.9, 1.1, 1.25} next to the T = 1 value (`sT08…sT125`; one extra log-softmax each). New pass `tf_temp` over the 300 post-cutoff documents for all 39 models (node1: the vLLM giants, Pro-Base FP8 again by offload; node2: the HF models; ~7 h). `vh_temp.py` fits CE(T) as a quadratic in log T and reports **C = CE(1) − min_T CE(T)** with a document-level bootstrap CI, T*, and per-domain T*.
+
+**Identity.** The gap is exactly the slope: for s(T) = −z_y/T + logsumexp(z/T), ds/dT at T = 1 equals z_y − E_p[z] = H − s. So mean(H − s) = −dCE/dT|₁ (checked: V4-Flash chat slope −0.390 vs gap −0.404 from the fit), and C ≈ gap² / (2·curvature), where the curvature is the variance of the logits under the model — varentropy. Varentropy's job, after all: it converts the slope into a cost.
+
+**Results.** Every base and pre-anneal checkpoint: C = 0.0002–0.0011 nats/token, T* = 0.98–1.01 — including the large released bases whose gap is −0.02…−0.03 (V3-Base, 405B, Flash-Base, Pro-Base FP8: 0.0002–0.0003). Their gap is a real slope but a negligible cost: nothing is recoverable by rescaling. Post-trained: GLM-4 chat 0.010, Qwen2.5-72B-Instruct 0.011, V3 chat 0.013, MiMo 0.015, cogito 0.015, V4-Pro 0.018, OLMo-2 SFT 0.023, V4-Flash chat 0.037, Qwen3-30B instruct 0.077, gemma-2-9b-it 0.086, OLMo-2 DPO 0.102, Instruct 0.116 — the last four with T* at the grid's 1.25 edge, so lower bounds (widen the grid to 2.0 next pass). gemma-2-9b (distilled) 0.0042, T* 1.06, between the groups again. Trinity: TrueBase 0.0008, Base 0.0005, Preview 0.0011 — the anneal's gap (−0.065) costs almost nothing in this sense because its curvature is high.
+
+**Quantisation-invariant, as designed**: Flash FP8 → FP4 0.0002 → 0.0002; Pro 0.0002 → 0.0003 (gap moved 0.013 in both).
+
+**Status.** Bundle v10 carries `temp` for 38 rows (K2-Instruct re-running on node2: its shadow checkpoint lives there). C is reported beside the gap, not scored; it is the candidate calibration term for score v2 once the grid is widened and the OLMo-3 held-out ladder is in.
