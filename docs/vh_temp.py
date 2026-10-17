@@ -38,12 +38,18 @@ for m in sorted(os.listdir(res)):
     pick = rng.integers(0, len(ids), (B, len(ids))); vals = []
     for bi in range(B):
         pk = pick[bi]; vals.append(fit(sums[pk].sum(0) / n[pk].sum())[0])
+    # T* where the model is uncertain (highest-entropy octile): a tight, two-sided direction signature (pre-anneal < 1 < annealed)
+    H = z["H"].astype(np.float64); hi = H >= np.quantile(H, 0.875)
+    Shi = np.stack([np.bincount(inv[hi], weights=S[hi, j], minlength=len(ids)) for j in range(5)], 1); nhi = np.bincount(inv[hi], minlength=len(ids)).astype(np.float64)
+    t_hi = fit(Shi.sum(0) / nhi.sum())[1]
+    bh = [fit(Shi[pick[bi]].sum(0) / max(nhi[pick[bi]].sum(), 1.0))[1] for bi in range(min(B, 400))]
     dom_of = {d["doc"]: d["set"] for d in docs}; dom = np.array([dom_of[i] for i in ids]); per = {}
     for dd in sorted(set(dom)):
         sel = dom == dd; cd = sums[sel].sum(0) / n[sel].sum(); Cd, Td, _, _ = fit(cd)
         per[dd] = {"C": Cd, "T_star": Td, "n_tokens": int(n[sel].sum())}
     at_bound = bool(Ts >= TEMPS[-1] - 1e-6 or Ts <= TEMPS[0] + 1e-6)  # minimum at the edge of the grid: C is a lower bound
     out[m] = {"CE_T": dict(zip([str(t) for t in TEMPS], ce.tolist())), "C": C, "T_star": Ts, "CE_min": cem, "curvature": curv, "T_star_at_bound": at_bound,
+              "T_star_hiH": t_hi, "T_star_hiH_ci95": [float(np.percentile(bh, 2.5)), float(np.percentile(bh, 97.5))], "hiH_mean_H": float(H[hi].mean()),
               "gap_pass": gap_pass,  # mean(H - s) on this pass: the exact derivative dCE/dlogT at T = 1
               "slope_central": float((ce[3] - ce[1]) / (X[3] - X[1])),  # measured central difference over 0.9..1.1 (O(h^2) check of the identity)
               "C_ci95": [float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))], "n_docs": int(len(ids)), "n_tokens": int(n.sum()),
