@@ -87,7 +87,7 @@ def build_corpus(out_path, arrow_path, n_tf, n_openers, min_chars=400, seed=0):
 
 @torch.no_grad()
 def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf", min_len=8, start_id=None):
-    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4", *TEMP_COLS]}
+    cols = {k: [] for k in ["H", "V", "s", "p1", "top1", "rank", "tok", "doc", "pos", "m2", "m3", "m4", *TEMP_COLS, "ma"]}
     meta = []
     t0 = time.time()
     ntok = 0
@@ -114,6 +114,8 @@ def teacher_forced(model, tok, docs, max_len, out_dir, chunk=512, tag="tf", min_
             rank = (lg.float() > tl).sum(-1)
             tm = tail_mass(logp.exp()).half().cpu()
             cols["m2"].append(tm[:, 0]); cols["m3"].append(tm[:, 1]); cols["m4"].append(tm[:, 2])
+            p = logp.exp(); py = p.gather(1, tg[:, None])
+            cols["ma"].append((p * (p > py)).sum(-1).float().cpu())  # model mass on tokens rated more likely than the real one (PIT)
             lgf = lg.float()
             for T, col in zip(TEMPS, TEMP_COLS):  # surprisal of the real token under temperature T
                 cols[col].append((-F.log_softmax(lgf / T, dim=-1).gather(1, tg[:, None])[:, 0]).half().cpu())
