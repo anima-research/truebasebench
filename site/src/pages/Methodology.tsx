@@ -9,13 +9,14 @@ import { preAnnealBand, quantControl, quantControls, recitationAnchors, recitedL
 import { isScored, scoredKeys } from "../data/scoring";
 import { ProbePanels, probeStat } from "../charts/ProbeCharts";
 import { fmtC, TempCurves } from "../charts/TempCharts";
+import { CoverageDeviation, fmtKS } from "../charts/PitCharts";
 import { StageDotStrip } from "../charts/ModelCharts";
 import { get } from "../data/bundle";
 import { Plate } from "../components/Plate";
 import { PROBE_META } from "../data/method";
 import { fp, path } from "../data/bundle";
 import type { MethodologyValue } from "../content/slots";
-import type { Fmt } from "../lib/numfmt";
+import { fmtNum, type Fmt } from "../lib/numfmt";
 
 const SECTION_OF: Record<string, string> = { calib: "#calibration-gap", spread: "#calibration-gap", memo: "#verbatim-runs", prior: "#prior" };
 
@@ -129,6 +130,11 @@ export default function Methodology() {
   const bundle = useBundle();
   const sp = specimenPair(bundle);
   const probes = useMemo(() => ({ memo: probeStat(bundle, "memo"), kl: probeStat(bundle, "KL_few") }), [bundle]);
+  // the first quantisation-control pair, joined on the KS strip so the FP4-vs-FP8 offset is visible
+  const quantIds = useMemo(() => {
+    const qc = quantControl(bundle);
+    return qc ? [qc.release.id, qc.control.id] : [];
+  }, [bundle]);
   const blocks = useMemo(
     () => ({
       anchors: () => <AnchorsTable />,
@@ -189,6 +195,64 @@ export default function Methodology() {
           </Plate>
         );
       },
+      pit: () => {
+        const A = sp?.A;
+        const B = sp?.B;
+        const pair = [A, B].filter((m): m is NonNullable<typeof m> => !!m && !!m.pit);
+        const withPit = bundle.models.filter((m) => m.pit && typeof m.pit.KS === "number");
+        return (
+          <Plate
+            label="Plate U · Coverage: P(u ≤ q) − q"
+            caption="Left: coverage deviation over q for the specimen pair (A filled, B dashed), with every other checkpoint drawn faintly in its stage colour (blue = pre-anneal, mid-anneal and released bases; red = post-trained) so the stage-wise shape shows. Zero is perfect calibration; above it the real token sits inside the model's top-q mass more often than q. Right: KS = max |P(u ≤ q) − q| for every checkpoint on a log axis, by stage, with 95% document-bootstrap whiskers; the quantisation controls sit beside their releases."
+            sources={["models[*].pit.cov", "models[*].pit.KS", "models[*].pit.KS_ci95", "models[*].pit.q_at_max", "models[*].pit.excess_q10", "models[*].pit.excess_q90", "models[*].pit.mean_u"]}
+            data={{
+              columns: ["checkpoint", "stage", "KS", "95% CI", "q at max", "excess q=0.1", "excess q=0.5", "excess q=0.9", "mean u", "worst domain KS", "worst entropy-octile KS", "positions"],
+              numeric: [false, false, true, false, true, true, true, true, true, true, true, true],
+              rows: withPit.map((m) => [
+                `${m.family} · ${m.label}`,
+                m.stage,
+                fmtKS(m.pit!.KS),
+                m.pit!.KS_ci95 ? `[${fmtKS(m.pit!.KS_ci95[0])}, ${fmtKS(m.pit!.KS_ci95[1])}]` : "—",
+                fmtNum(m.pit!.q_at_max ?? null, "num3"),
+                fmtNum(m.pit!.excess_q10 ?? null, "signed"),
+                fmtNum(m.pit!.excess_q50 ?? null, "signed"),
+                fmtNum(m.pit!.excess_q90 ?? null, "signed"),
+                fmtNum(m.pit!.mean_u ?? null, "num3"),
+                fmtKS(m.pit!.KS_domain_max),
+                fmtKS(m.pit!.KS_H_max),
+                String(m.pit!.n ?? "—"),
+              ]),
+            }}
+          >
+            <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+              <div style={{ minWidth: 0 }}>
+                {pair.length ? <CoverageDeviation bundle={bundle} pair={pair} labels={pair.map((m) => `${m.id === A?.id ? "A" : "B"} · ${m.label}`)} /> : <p className="small ink3">Specimen pair not measured.</p>}
+                {pair.map((m) => (
+                  <p key={m.id} className="small ink2" style={{ margin: "4px 0 0" }}>
+                    {m.label}: KS <Num path={path(m, "pit.KS")} fmt="raw" /> at q <Num path={path(m, "pit.q_at_max")} fmt="num2" />; excess at q = 0.1{" "}
+                    <Num path={path(m, "pit.excess_q10")} fmt="signed" />, at q = 0.9 <Num path={path(m, "pit.excess_q90")} fmt="signed" />; mean u <Num path={path(m, "pit.mean_u")} fmt="num3" />
+                  </p>
+                ))}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <StageDotStrip
+                  bundle={bundle}
+                  value={(m) => get(m, "pit.KS")}
+                  valuePath={(m) => path(m, "pit.KS")}
+                  fmtKind="raw"
+                  axisTitle="coverage KS = max |P(u ≤ q) − q| (log axis)"
+                  logScale
+                  ci={(m) => (m.pit?.KS_ci95 && typeof m.pit.KS_ci95[0] === "number" && typeof m.pit.KS_ci95[1] === "number" && m.pit.KS_ci95[0] > 0 ? [m.pit.KS_ci95[0], m.pit.KS_ci95[1]] : null)}
+                  metricName="KS"
+                  labelIds={[...pair.map((m) => m.id), ...quantIds]}
+                  joinIds={quantIds}
+                  noJoinArrow
+                />
+              </div>
+            </div>
+          </Plate>
+        );
+      },
       probes: () => (
         <Plate
           label="Plate P · Validation probes against the overall score"
@@ -221,6 +285,18 @@ export default function Methodology() {
     const temps = {
       base: bundle.models.filter((m) => m.stage !== "post-trained" && typeof m.temp?.C === "number"),
       post: bundle.models.filter((m) => m.stage === "post-trained" && typeof m.temp?.C === "number"),
+    };
+    const pits = {
+      base: bundle.models.filter((m) => m.stage !== "post-trained" && typeof m.pit?.KS === "number"),
+      post: bundle.models.filter((m) => m.stage === "post-trained" && typeof m.pit?.KS === "number"),
+      best: bundle.models.filter((m) => typeof m.pit?.KS === "number").reduce<(typeof bundle.models)[number] | null>((a, m) => (!a || m.pit!.KS! < a.pit!.KS! ? m : a), null),
+    };
+    /** median of a field over a group, as a derived Num */
+    const medNum = (ms: typeof pits.base, key: string, f: Fmt, what: string) => {
+      const vs = ms.map((m) => get(m, key)).filter((v): v is number => v !== null).sort((a, b) => a - b);
+      if (!vs.length) return <>—</>;
+      const med = vs.length % 2 ? vs[vs.length >> 1] : (vs[vs.length / 2 - 1] + vs[vs.length / 2]) / 2;
+      return <Num path={`models[*].${key}`} value={med} fmt={f} derived={what} />;
     };
     /** "lo–hi" of a temp field over a group, each end a Num pointing at the model that sets it. */
     const rangeNum = (ms: typeof temps.base, key: string, f: Fmt) => {
@@ -280,6 +356,23 @@ export default function Methodology() {
       "temp-post-range": () => rangeNum(temps.post, "temp.C", "raw"),
       "temp-n-post": () => <>{temps.post.length}</>,
       "temp-n-bound": () => <>{temps.post.filter((m) => m.temp?.T_star_at_bound).length}</>,
+      "pit-best": () => <>{pits.best ? name(pits.best) : "—"}</>,
+      "pit-best-ks": () => (pits.best ? <Num path={path(pits.best, "pit.KS")} fmt="raw" /> : <>—</>),
+      "pit-a-ks": () => (sp?.A.pit ? <Num path={path(sp.A, "pit.KS")} fmt="raw" /> : <>—</>),
+      "pit-b-ks": () => (sp?.B.pit ? <Num path={path(sp.B, "pit.KS")} fmt="raw" /> : <>—</>),
+      "pit-base-range": () => rangeNum(pits.base, "pit.KS", "raw"),
+      "pit-n-base": () => <>{pits.base.length}</>,
+      "pit-post-range": () => rangeNum(pits.post, "pit.KS", "raw"),
+      "pit-n-post": () => <>{pits.post.length}</>,
+      "pit-base-q10": () => medNum(pits.base, "pit.excess_q10", "signed", "median excess at q = 0.1 over base-side checkpoints"),
+      "pit-post-q90": () => medNum(pits.post, "pit.excess_q90", "signed", "median excess at q = 0.9 over post-trained checkpoints"),
+      "pit-base-q": () => medNum(pits.base, "pit.q_at_max", "num2", "median q at max |deviation| over base-side checkpoints"),
+      "pit-post-q": () => medNum(pits.post, "pit.q_at_max", "num2", "median q at max |deviation| over post-trained checkpoints"),
+      "pit-ci-half": () => {
+        const hw = [...pits.base, ...pits.post].map((m) => (m.pit?.KS_ci95 && typeof m.pit.KS_ci95[0] === "number" && typeof m.pit.KS_ci95[1] === "number" ? (m.pit.KS_ci95[1] - m.pit.KS_ci95[0]) / 2 : null)).filter((v): v is number => v !== null);
+        const med = hw.length ? [...hw].sort((a, b) => a - b)[hw.length >> 1] : null;
+        return med === null ? <>—</> : <Num path="models[*].pit.KS_ci95" value={med} fmt="raw" derived="median half-width of KS_ci95 over all checkpoints" />;
+      },
       "recite-anchor": () => <Num path="method.RAMPS.memo[1]" value={recitationAnchors(bundle)[1]} fmt="pct" def />,
       "recite-elevated-anchor": () => <Num path="method.RAMPS.memo[0]" value={recitationAnchors(bundle)[0]} fmt="pct" def />,
       "recite-n": () => <>{recitedList(bundle).length}</>,

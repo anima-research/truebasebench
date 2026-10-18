@@ -6,6 +6,7 @@ import { CI_KEY, defaultCompare, fmtParams, nAvailable, nScored, params, preAnne
 import { ciBounds } from "../data/ci";
 import { fmtMass, oodRows, PriorMassBars, TAIL_KS, tailLabel, TailMassRows, TailReliabilityDiagram, withCI } from "../charts/TailPriorCharts";
 import { TempSpark, tempNote } from "../charts/TempCharts";
+import { fmtKS, PitSpark } from "../charts/PitCharts";
 import { describe, GROUPS } from "../data/glossary";
 import { SUB_META } from "../data/method";
 import { isScoredSub, meanOfStored, scoredKeysOf } from "../data/scoring";
@@ -453,6 +454,39 @@ export default function ModelPage() {
                           <TempSpark t={model.temp} />{" "}
                           <span className="small ink3">{["0.8", "0.9", "1.0", "1.1", "1.25"].map((k) => fmtNum(isNum(model.temp?.CE_T?.[k]) && isNum(model.temp?.CE_min) ? model.temp!.CE_T[k]! - model.temp!.CE_min! : null, "num3")).join(" · ")}</span>
                         </span>,
+                      ],
+                    ] as [React.ReactNode, React.ReactNode][])
+                  : []),
+                ...(model.pit && isNum(model.pit.KS)
+                  ? ([
+                      [
+                        <span title="coverage KS = max over q of |P(u ≤ q) − q| with u the randomised PIT: the largest share of probability misplaced; two-sided; reported, not scored (methodology → Coverage)">coverage KS</span>,
+                        <>
+                          <Num path={P("pit.KS")} fmt="raw" />
+                          {model.pit.KS_ci95 && isNum(model.pit.KS_ci95[0]) && isNum(model.pit.KS_ci95[1]) && (
+                            <span className="ink3" title="95% document bootstrap"> [{fmtKS(model.pit.KS_ci95[0])}, {fmtKS(model.pit.KS_ci95[1])}]</span>
+                          )}
+                          <span className="ink3"> at q = <Num path={P("pit.q_at_max")} fmt="num2" /></span>
+                        </>,
+                      ],
+                      [
+                        "coverage excess at q = 0.1 / 0.9",
+                        <>
+                          <Num path={P("pit.excess_q10")} fmt="signed" /> / <Num path={P("pit.excess_q90")} fmt="signed" />
+                          <span className="ink3"> · mean u <Num path={P("pit.mean_u")} fmt="num3" /></span>
+                        </>,
+                      ],
+                      [
+                        "P(u ≤ q) − q over q",
+                        <span title={`coverage deviation on q = 0 … 1; extreme ${fmtKS(model.pit.KS)} at q = ${fmtNum(model.pit.q_at_max ?? null, "num2")}`}>
+                          <PitSpark p={model.pit} />
+                        </span>,
+                      ],
+                      [
+                        "worst entropy octile / worst domain KS",
+                        <>
+                          <Num path={P("pit.KS_H_max")} fmt="raw" /> / <Num path={P("pit.KS_domain_max")} fmt="raw" />
+                        </>,
                       ],
                     ] as [React.ReactNode, React.ReactNode][])
                   : []),

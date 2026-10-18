@@ -45,6 +45,10 @@
 .lb-table .c-micro { display: none; }
 /* validation probes: a separate group to the right of the scored sub-scores */
 .lb-table th.c-probe.first, .lb-table td.c-probe.first { border-left: 1px solid var(--rule-strong); }
+/* the reported-group headers may wrap onto two lines (their tag goes under the name) so the table fits a 1200–1600px window */
+.lb-table thead th.c-probe { white-space: normal; max-width: 7.5em; }
+.lb-table thead th.c-probe .sort-btn { display: inline-flex; flex-wrap: wrap; row-gap: 2px; align-items: flex-end; }
+.lb-table thead th.c-probe .probe-tag { flex-basis: 100%; width: max-content; margin: 0; }
 .lb-table .c-probe { color: var(--ink-2); }
 .probe-tag { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-strong); padding: 0 3px; margin-left: 4px; vertical-align: middle; }
 .subcell.probe svg { opacity: 0.55; }
@@ -59,9 +63,31 @@
 .subcell.probe.flagged svg, .subcell.probe.elevated svg { opacity: 0.85; }
 .mp-recite { margin: 6px 0 0; font-size: 14px; color: var(--ink-2); }
 
-@media (max-width: 1099px) {
+@media (max-width: 1399px) {
+  /* the reported group (two probes + two reported statistics) needs the width the Size column used */
   .lb-table .c-size { display: none; }
   .lb-table .size-inline { display: inline; }
+  table.lb-table th, table.lb-table td { padding-left: 6px; padding-right: 6px; }
+  .lb-table .c-sub .subcell svg { width: 48px; }
+  .lb-table .c-probe .subcell svg { width: 32px; }
+  .lb-table .c-probe .subcell .rng { display: none; }
+  .lb-table .c-temp .subcell .v { min-width: 4.5ch; }
+  .lb-table .c-rank { width: 30px; }
+  .lb-table .c-stage { width: 56px; }
+  .lb-table .c-overall svg { width: 80px; }
+  .lb-table thead th.c-overall .small { display: none; }
+}
+@media (max-width: 1199px) {
+  /* the two reported statistics (temperature cost, coverage KS) stay on the model page; the probes keep their group */
+  table.lb-table th, table.lb-table td { padding-left: 4px; padding-right: 4px; }
+  .lb-table .c-sub .subcell svg { width: 40px; }
+  .lb-table .c-overall svg { width: 72px; }
+  .lb-table .c-temp { display: none; }
+}
+@media (max-width: 959px) {
+  .lb-table .c-probe { display: none; }
+}
+@media (max-width: 1099px) {
   .lb-table .c-sub .subcell .v { display: none; }
   .lb-table .c-probe .subcell .rng { display: none; }
 }

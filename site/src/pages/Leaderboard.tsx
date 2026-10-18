@@ -4,6 +4,7 @@ import { useBundle, useLoaded } from "../data/BundleContext";
 import { CI_KEY, ciBounds, ciScore, compareOverall, familiesOf, fmtParams, ladder, ladderColumns, nAvailable, nScored, params, probeValue, ranked, SIZE_LABEL, sizeBucket, STAGE_CODE, stageOrder, type SizeBucket } from "../data/derive";
 import { PROBE_KEYS, PROBE_META, RAMPS, SUB_META, type ProbeKey } from "../data/method";
 import { fmtC } from "../charts/TempCharts";
+import { fmtKS } from "../charts/PitCharts";
 import { get } from "../data/bundle";
 import { isScoredSub, scoredKeys, scoredKeysOf } from "../data/scoring";
 import { SUB_KEYS, type Model, type Stage, type SubKey } from "../data/types";
@@ -18,7 +19,8 @@ import { ReciteBadge } from "../components/ReciteBadge";
 import { recitation } from "../data/derive";
 import { linear } from "../lib/scale";
 
-type SortKey = "overall" | SubKey | ProbeKey | "temp" | "model" | "stage" | "size";
+type SortKey = "overall" | SubKey | ProbeKey | "temp" | "pit" | "model" | "stage" | "size";
+const PIT_TITLE = "Coverage KS (reported, not scored): with u = ma + U·p(real) the randomised PIT, KS = max over q of |P(u ≤ q) − q| — the largest share of probability the model misplaces; 0 = its top-q mass contains the real token with probability q for every q. Two-sided; noise can only raise it. Calibration quality, not provenance.";
 const TEMP_TITLE = "Temp. cost (reported, not scored): C = CE(1) − min over T of CE(T), nats/token — the cross-entropy the model would gain from one global temperature rescaling; two-sided (over- and under-confidence both > 0). ≥ marks a minimum at the edge of the measured grid (C is a lower bound). Candidate calibration term for score v2.";
 export const PROBE_NOTE = "validation probe: not a term of the score; the score should predict it";
 const SIZES: SizeBucket[] = ["lt15", "15to100", "gt100", "unknown"];
@@ -309,6 +311,8 @@ export default function Leaderboard() {
           return probeValue(m, "KL_few");
         case "temp":
           return get(m, "temp.C");
+        case "pit":
+          return get(m, "pit.KS");
         default:
           // with raw features shown, sort by what is shown: the unclipped feature, oriented like the score
           return raw ? rampPosition(m, sort) : m.subscores?.[sort]?.score ?? null;
@@ -537,6 +541,8 @@ export default function Leaderboard() {
             ))}
             <option value="temp:asc">Temp. cost (reported), low first</option>
             <option value="temp:desc">Temp. cost (reported), high first</option>
+            <option value="pit:asc">Coverage KS (reported), low first</option>
+            <option value="pit:desc">Coverage KS (reported), high first</option>
             <option value="model:asc">Model A–Z</option>
             <option value="stage:asc">Stage order</option>
           </select>
@@ -580,6 +586,9 @@ export default function Leaderboard() {
               ))}
               <SortTh k="temp" className="c-probe c-temp" title={TEMP_TITLE}>
                 Temp. cost <span className="probe-tag">reported</span>
+              </SortTh>
+              <SortTh k="pit" className="c-probe c-temp" title={PIT_TITLE}>
+                Coverage KS <span className="probe-tag">reported</span>
               </SortTh>
             </tr>
           </thead>
@@ -646,6 +655,11 @@ export default function Leaderboard() {
                   <td className="c-probe c-temp">
                     <span className="subcell probe" title={m.temp ? `${TEMP_TITLE} This row: C ${fmtC(m.temp)}, T* ${fmtNum(m.temp.T_star, "num2")}${m.temp.C_ci95 ? `, 95% CI [${fmt(m.temp.C_ci95[0], "raw")}, ${fmt(m.temp.C_ci95[1], "raw")}]` : ""}` : `${TEMP_TITLE} Not measured for this checkpoint.`}>
                       <span className={"v kl" + (m.temp?.T_star_at_bound ? " bound" : "")}>{m.temp ? fmtC(m.temp) : "—"}</span>
+                    </span>
+                  </td>
+                  <td className="c-probe c-temp">
+                    <span className="subcell probe" title={m.pit ? `${PIT_TITLE} This row: KS ${fmtKS(m.pit.KS)} at q = ${fmtNum(m.pit.q_at_max ?? null, "num2")}${m.pit.KS_ci95 ? `, 95% CI [${fmtKS(m.pit.KS_ci95[0])}, ${fmtKS(m.pit.KS_ci95[1])}]` : ""}; excess at q = 0.1 ${fmtNum(m.pit.excess_q10 ?? null, "signed")}, at 0.9 ${fmtNum(m.pit.excess_q90 ?? null, "signed")}` : `${PIT_TITLE} Not measured for this checkpoint.`}>
+                      <span className="v kl">{m.pit ? fmtKS(m.pit.KS) : "—"}</span>
                     </span>
                   </td>
                   <td className="c-micro" aria-hidden="true">

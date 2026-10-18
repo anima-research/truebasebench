@@ -56,6 +56,13 @@ function tempNumbers(f7: Findings["f7"]): FindingNumber[] {
     { label: "temperature-scaling cost, base ceiling", path: "findings.F7_C_BASE_MAX", value: FINDING_DEFS.F7_C_BASE_MAX, fmt: "raw", def: true },
     { label: "temperature-scaling cost, post-trained floor", path: "findings.F7_C_POST_MIN", value: FINDING_DEFS.F7_C_POST_MIN, fmt: "raw", def: true },
     ...[...f7.tempBaseBad, ...f7.tempPostLow, ...f7.tempDistilled].map((m) => numOf(m, "temp.C", "raw", "temperature-scaling cost C")),
+    ...(f7.withPit.length
+      ? [
+          { label: "coverage KS, base ceiling", path: "findings.F7_KS_BASE_MAX", value: FINDING_DEFS.F7_KS_BASE_MAX, fmt: "raw" as const, def: true },
+          { label: "coverage KS, post-trained floor", path: "findings.F7_KS_POST_MIN", value: FINDING_DEFS.F7_KS_POST_MIN, fmt: "raw" as const, def: true },
+          ...[...f7.pitBaseBad, ...f7.pitPostLow, ...f7.pitDistilled].map((m) => numOf(m, "pit.KS", "raw", "coverage KS")),
+        ]
+      : []),
   ];
 }
 const isDistilled = (m: Model) =>
@@ -580,7 +587,7 @@ export function useFindingView(bundle: Bundle, F: Findings): FindingView {
         </p>
         <p>
           Noise: no non-distilled pre-anneal or base checkpoint below −
-          {noiseTolNum} on base64 — {state(f7.checks.noise)}. Temperature-scaling cost ([definition](/methodology#temperature)): every
+          {noiseTolNum} on base64 — {state(f7.checks.noise)}. Temperature-scaling cost (<Link to="/methodology#temperature">definition</Link>): every
           non-distilled pre-anneal, mid-anneal and base checkpoint below{" "}
           <Num path="findings.F7_C_BASE_MAX" value={FINDING_DEFS.F7_C_BASE_MAX} fmt="raw" def /> nats/token and at least{" "}
           <Num path="findings.F7_C_POST_SHARE" value={FINDING_DEFS.F7_C_POST_SHARE} fmt="pct" def /> of post-trained checkpoints at or above{" "}
@@ -589,6 +596,16 @@ export function useFindingView(bundle: Bundle, F: Findings): FindingView {
             <>
               {" "}(post-trained below the floor: {joinNodes(f7.tempPostLow.map((m) => <Checkpoint key={m.id} m={m} />))}
               {f7.tempDistilled.length ? <>; distilled, not counted: {joinNodes(f7.tempDistilled.map((m) => <Checkpoint key={m.id} m={m} />))}</> : null})
+            </>
+          ) : null}
+          . Coverage (<Link to="/methodology#pit">definition</Link>): every non-distilled base-side checkpoint with KS at or below{" "}
+          <Num path="findings.F7_KS_BASE_MAX" value={FINDING_DEFS.F7_KS_BASE_MAX} fmt="raw" def /> and at least{" "}
+          <Num path="findings.F7_C_POST_SHARE" value={FINDING_DEFS.F7_C_POST_SHARE} fmt="pct" def /> of post-trained checkpoints at or above{" "}
+          <Num path="findings.F7_KS_POST_MIN" value={FINDING_DEFS.F7_KS_POST_MIN} fmt="raw" def /> — {state(f7.checks.coverage)}
+          {f7.pitPostLow.length > 0 && !f7.checks.coverage.pending ? (
+            <>
+              {" "}(post-trained below the floor: {joinNodes(f7.pitPostLow.map((m) => <Checkpoint key={m.id} m={m} />))}
+              {f7.pitDistilled.length ? <>; distilled, not counted: {joinNodes(f7.pitDistilled.map((m) => <Checkpoint key={m.id} m={m} />))}</> : null})
             </>
           ) : null}
           .

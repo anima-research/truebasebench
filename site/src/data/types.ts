@@ -149,6 +149,27 @@ export interface Temp {
   [k: string]: unknown;
 }
 
+/** Randomised PIT u = ma + U·p(real) (docs/vh_pit.py): coverage P(u ≤ q) on q = 0, 0.025, …, 1 and its deviations. */
+export interface Pit {
+  /** max |P(u ≤ q) − q|: probability misplaced, two-sided; noise can only raise it */
+  KS: number | null;
+  KS_ci95?: [number | null, number | null] | null;
+  q_at_max?: number | null;
+  mean_u?: number | null;
+  /** 41 values of P(u ≤ q) on q = 0, 0.025, …, 1 */
+  cov?: (number | null)[] | null;
+  excess_q10?: number | null;
+  excess_q50?: number | null;
+  excess_q90?: number | null;
+  signed_area?: number | null;
+  n?: number | null;
+  by_H_octile?: { mean_H: number | null; KS: number | null; excess_q10?: number | null; mean_u?: number | null }[] | null;
+  by_domain?: Record<string, { KS: number | null; mean_u?: number | null; n?: number | null }> | null;
+  KS_domain_max?: number | null;
+  KS_H_max?: number | null;
+  [k: string]: unknown;
+}
+
 /** genre -> [gap, verbatim share, CE] */
 export type Weird = Record<string, [number | null, number | null, number | null] | null>;
 
@@ -173,6 +194,8 @@ export interface Model {
   ood?: Record<string, TailStats | null> | null;
   /** temperature-scaling cost (docs/vh_temp.py, bundle v10+) */
   temp?: Temp | null;
+  /** PIT coverage calibration (docs/vh_pit.py, bundle v11+) */
+  pit?: Pit | null;
   params?: { total_b?: number | null; active_b?: number | null } | null;
   [k: string]: unknown;
 }

@@ -39,6 +39,10 @@ export const FINDING_DEFS = {
   F7_C_POST_MIN: 0.005,
   /** F7: share of post-trained checkpoints that must support it */
   F7_C_POST_SHARE: 0.75,
+  /** F7: every non-distilled pre-anneal / mid-anneal / base checkpoint has coverage KS at or below this */
+  F7_KS_BASE_MAX: 0.01,
+  /** F7: a post-trained checkpoint supports the coverage claim when its KS is at least this */
+  F7_KS_POST_MIN: 0.02,
   /** F2: the memo family's anneal must raise the Wikipedia verbatim share by more than this */
   F2_MEMO_RISE: 0.05,
   /** F2: the prior family's anneal must raise the marker rate by more than this on every annealed rung */
@@ -350,6 +354,13 @@ export function f6(b: Bundle): F6 {
 
 // ---------- F7 tail reliability, exact prior, OOD noise (bundle v6 blocks; keyed on data presence) ----------
 export interface F7 {
+  /** models carrying the pit block; bases / post-trained split; exceptions to the coverage claim */
+  withPit: Model[];
+  pitBases: Model[];
+  pitPosts: Model[];
+  pitBaseBad: Model[];
+  pitPostLow: Model[];
+  pitDistilled: Model[];
   /** models carrying the temp block; bases / post-trained split; exceptions to the temperature claim */
   withTemp: Model[];
   tempBases: Model[];
@@ -367,7 +378,7 @@ export interface F7 {
   ratio3Median: { bases: number | null; posts: number | null };
   /** Spearman rank correlation between log10 exact instruction mass and the sampled marker rate; null below F7_MIN pairs */
   rho: number | null;
-  checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check; temperature: Check };
+  checks: { tailBases: Check; tailPost: Check; priorAgrees: Check; noise: Check; temperature: Check; coverage: Check };
 }
 
 /** Minimum models per group before a F7 claim is tested at all; below it the check reports "insufficient data" and holds. */
@@ -400,7 +411,20 @@ export function f7(b: Bundle): F7 {
   const tempBaseBad = tempBases.filter((m) => get(m, "temp.C")! >= FINDING_DEFS.F7_C_BASE_MAX);
   const tempPostLow = tempPosts.filter((m) => get(m, "temp.C")! < FINDING_DEFS.F7_C_POST_MIN);
   const tempDistilled = withTemp.filter((m) => m.stage !== "post-trained" && isDistilled(m));
+  // coverage KS: the same shape as the temperature check (bases below F7_KS_BASE_MAX; most post-trained above F7_KS_POST_MIN)
+  const withPit = b.models.filter((m) => m.pit && num(get(m, "pit.KS")));
+  const pitBases = withPit.filter((m) => m.stage !== "post-trained" && !isDistilled(m));
+  const pitPosts = withPit.filter((m) => m.stage === "post-trained");
+  const pitBaseBad = pitBases.filter((m) => get(m, "pit.KS")! > FINDING_DEFS.F7_KS_BASE_MAX);
+  const pitPostLow = pitPosts.filter((m) => get(m, "pit.KS")! < FINDING_DEFS.F7_KS_POST_MIN);
+  const pitDistilled = withPit.filter((m) => m.stage !== "post-trained" && isDistilled(m));
   return {
+    withPit,
+    pitBases,
+    pitPosts,
+    pitBaseBad,
+    pitPostLow,
+    pitDistilled,
     withTemp,
     tempBases,
     tempPosts,
@@ -432,6 +456,13 @@ export function f7(b: Bundle): F7 {
           : {
               ok: tempBaseBad.length === 0 && tempPosts.length - tempPostLow.length >= FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length,
               note: `${tempBaseBad.length ? `a non-distilled base checkpoint has a temperature-scaling cost of ${FINDING_DEFS.F7_C_BASE_MAX} nats/token or more: ${tempBaseBad.map((m) => m.label).join(", ")}` : ""}${tempBaseBad.length && tempPosts.length - tempPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length ? "; " : ""}${tempPosts.length - tempPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * tempPosts.length ? `fewer than ${Math.round(FINDING_DEFS.F7_C_POST_SHARE * 100)}% of post-trained checkpoints have a cost of ${FINDING_DEFS.F7_C_POST_MIN} nats/token or more` : ""}`,
+            },
+      coverage:
+        pitBases.length < F7_MIN || pitPosts.length < F7_MIN
+          ? pending("coverage KS by stage", Math.min(pitBases.length, pitPosts.length))
+          : {
+              ok: pitBaseBad.length === 0 && pitPosts.length - pitPostLow.length >= FINDING_DEFS.F7_C_POST_SHARE * pitPosts.length,
+              note: `${pitBaseBad.length ? `a non-distilled base checkpoint has coverage KS above ${FINDING_DEFS.F7_KS_BASE_MAX}: ${pitBaseBad.map((m) => m.label).join(", ")}` : ""}${pitBaseBad.length && pitPosts.length - pitPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * pitPosts.length ? "; " : ""}${pitPosts.length - pitPostLow.length < FINDING_DEFS.F7_C_POST_SHARE * pitPosts.length ? `fewer than ${Math.round(FINDING_DEFS.F7_C_POST_SHARE * 100)}% of post-trained checkpoints have coverage KS of ${FINDING_DEFS.F7_KS_POST_MIN} or more` : ""}`,
             },
       noise:
         withOod.filter(isBase).length < F7_MIN

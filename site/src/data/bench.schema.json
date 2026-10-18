@@ -622,6 +622,74 @@
               }
             }
           ]
+        },
+        "pit": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "KS"
+              ],
+              "properties": {
+                "KS": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "KS_ci95": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/definitions/numOrNull"
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "q_at_max": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "mean_u": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "cov": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/definitions/numOrNull"
+                  }
+                },
+                "excess_q10": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "excess_q90": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "by_H_octile": {
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                },
+                "by_domain": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "KS_domain_max": {
+                  "$ref": "#/definitions/numOrNull"
+                },
+                "KS_H_max": {
+                  "$ref": "#/definitions/numOrNull"
+                }
+              }
+            }
+          ]
         }
       }
     },
