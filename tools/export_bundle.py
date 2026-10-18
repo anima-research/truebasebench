@@ -52,7 +52,7 @@ DEFAULT_DATA_DIR = os.path.join(REPO, "data")
 DEFAULT_REGISTRY = os.path.join(HERE, "models.json")
 DEFAULT_PRIOR_OPENERS = os.path.join(DEFAULT_DATA_DIR, "prior_openers.json")
 # Optional per-model blocks added in bundle v6 (absent in older bundles; the site treats absence as null).
-OPTIONAL_BLOCKS = ("ci", "tailmass", "prior", "ood", "temp")
+OPTIONAL_BLOCKS = ("ci", "tailmass", "prior", "ood", "temp", "pit")
 
 SCHEMA_VERSION = 1
 MANIFEST_VERSION = 1
@@ -251,7 +251,8 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
     selfboot = selfboot_raw.get("models", {}) if isinstance(selfboot_raw, dict) else {}
     boot = load_optional(adir, "bootstrap.json", warnings) or {}  # document-level bootstrap CIs
     tailmass = load_optional(adir, "tailmass.json", warnings) or {}
-    temp = load_optional(adir, "temp.json", warnings) or {}  # vh_temp.py: temperature-scaling cost  # predicted tail mass, OOD genres, exact prior mass
+    temp = load_optional(adir, "temp.json", warnings) or {}  # vh_temp.py: temperature-scaling cost
+    pit = load_optional(adir, "pit.json", warnings) or {}  # vh_pit.py: PIT coverage calibration  # predicted tail mass, OOD genres, exact prior mass
     prior_openers = prior_openers_of(adir, warnings)
 
     reg_models: Dict[str, Dict[str, Any]] = registry["models"]
@@ -311,6 +312,7 @@ def build_bundle(adir: str, registry: Dict[str, Any], generated: str, strict: bo
             "prior": prior_block((tailmass.get(mid) or {}).get("prior"), mid),
             "ood": (tailmass.get(mid) or {}).get("ood"),
             "temp": temp.get(mid),
+            "pit": pit.get(mid),
             **({"provenance": clean(runs[mid])} if runs.get(mid) else {}),
         })
         for part in ("surnames", "weird", "selfboot", "tail") + OPTIONAL_BLOCKS:

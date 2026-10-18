@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "latest": "bench_v10.json",
+  "latest": "bench_v11.json",
   "bundles": [
     {
       "file": "bench_v1.json",
@@ -60,6 +60,12 @@
       "file": "bench_v10.json",
       "schema_version": 1,
       "generated": "2026-10-17",
+      "n_models": 39
+    },
+    {
+      "file": "bench_v11.json",
+      "schema_version": 1,
+      "generated": "2026-10-18",
       "n_models": 39
     }
   ]
